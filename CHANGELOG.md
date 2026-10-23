@@ -3,7 +3,10 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
-## Unreleased
+## 1.0.1 — 2026-10-23
+
+Checked on the A17: single tap, swipe and slow drag do nothing; still hold opens the
+chooser; double-tap continues.
 
 - Fix: any touch ending on the alert counted as a tap — a swipe, or a finger laid on a dimmed
   screen to wake it, discarded the reports, and a longer touch opened the share chooser.
