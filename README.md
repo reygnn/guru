@@ -62,6 +62,9 @@ go via `ACTION_SEND` to an app the user picks. They are removed only once an app
 cancelled chooser never answers; the reports stay for the next start. Nothing waits in
 memory, so a process death in between keeps them too (safe side).
 
+To get shared reports into the backend anyway, save the shared text and run the backend's
+`tools/import_share.py` on it; it posts each report like `GuruSink.Acra` would.
+
 Since Android 15 the chooser also answers for its own actions, with a `ChooserResult`.
 "Copy" answers, but does not count as handed over: only `CHOOSER_RESULT_SELECTED_COMPONENT`
 removes the reports; Copy, Edit, unknown or no result keep them. That is why the
@@ -75,17 +78,20 @@ stays until the server answers 2xx.
 The server is the family's own ACRA backend (`~/PythonProjects/acra`, Flask + MariaDB).
 Checked against its source (2026-10-23):
 
-- Endpoint `POST <server>/report`, basic auth with the reporter user.
+- Endpoint `POST <server>/report`, basic auth with the **reporter** user. That user may
+  only report; the ProGuard-mapping routes take a separate admin user that never goes
+  into an APK.
 - Required (missing → 400): `PACKAGE_NAME` and `STACK_TRACE`. It also reads
   `APP_VERSION_CODE` (for the ProGuard mapping), `APP_VERSION_NAME`, `ANDROID_VERSION`,
-  `PHONE_MODEL` and `BRAND`.
-- Bugs are grouped by the exception class from the trace's first line plus the `at` frames
-  among its first three lines; the message is left out. A known bug always gets 200,
-  so a resend only raises its count.
-- ANRs and native crashes have no frames there. For those the backend groups by
-  `PACKAGE_NAME` and `CUSTOM_DATA.GURU_MEDITATION` (Guru's number) instead. That is why
-  their trace starts `ApplicationNotResponding: …` / `NativeCrash: …` and why the number is
-  sent.
+  `PHONE_MODEL` and `BRAND`; anything longer than its column is clipped, never refused.
+- Guru reports — crash, ANR and native crash alike — are grouped by `PACKAGE_NAME`, the
+  exception class from the trace's first line and `CUSTOM_DATA.GURU_MEDITATION`
+  (Guru's number: the root cause and three frames, stable from build to build). That is
+  why the number is sent, and why ANRs and native crashes start
+  `ApplicationNotResponding: …` / `NativeCrash: …`. Reports without the number (the ACRA
+  library) are grouped by the `at` frames in the trace's first three lines.
+- A known bug always gets 200. A resend with the same `REPORT_ID` (the 200 got lost)
+  is answered 200 and not counted again.
 
 The other fields (`REPORT_ID`, `INSTALLATION_ID`, `USER_CRASH_DATE` in
 `yyyy-MM-dd'T'HH:mm:ss.SSSXXX`) are what a stock ACRA server such as Acrarium requires.

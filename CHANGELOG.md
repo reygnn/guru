@@ -3,6 +3,12 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
+## Unreleased
+
+- Docs: the backend contract as deployed on 2026-10-23 — every Guru report grouped by
+  package, class and Guru number; a `REPORT_ID` counted once; reporter and admin users
+  separate; shared reports importable with the backend's `tools/import_share.py`.
+
 ## 1.0.1 — 2026-10-23
 
 Checked on the A17: single tap, swipe and slow drag do nothing; still hold opens the
