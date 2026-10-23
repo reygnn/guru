@@ -196,7 +196,8 @@ id, so install it with
 
 `./gradlew check` in this repo: the unit tests, lint (warnings as errors, no baseline)
 and detekt (Verso's rules, no baseline), with Kotlin warnings as errors for main and test
-sources, for `library/` and `sample/`. The build mirrors Verso's versions and rules, so what passes here compiles in a
+sources, for `library/` and `sample/`. CI runs it on every push and pull request
+(`.github/workflows/check.yml`). The build mirrors Verso's versions and rules, so what passes here compiles in a
 host that pulls it.
 
 ## License

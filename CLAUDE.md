@@ -80,7 +80,8 @@ Hosts compile Guru with their own settings, so a deviation here fails only after
 - No `consumer-rules.pro`: the host decides about `-dontobfuscate` (README, "Release
   builds").
 
-`./gradlew check` is the gate: unit tests, lint, detekt.
+`./gradlew check` is the gate: unit tests, lint, detekt. CI runs exactly that on every
+push and pull request (`.github/workflows/check.yml`, JDK 21).
 
 ## Versions and releases
 
