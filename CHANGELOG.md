@@ -13,6 +13,8 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 - Fix: since Android 15 the share chooser also answers for "Copy" and "Edit", and that
   removed the reports. Now only an app picked (`ChooserResult` `SELECTED_COMPONENT`)
   removes them; the callback `PendingIntent` is mutable so the system's result arrives.
-  5 more tests (113).
+  5 more tests (113). Checked on the A17 (One UI, Android 16, the AOSP intentresolver
+  chooser): "Copy" keeps the report, picking an app removes it; the previous build
+  removed it on "Copy".
 - `sample/`: a tiny host for the device test — crash button, ANR button in debug builds,
   `GuruSink.Share`, its own `GuruTexts` with `values-de`.
