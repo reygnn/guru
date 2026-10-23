@@ -75,7 +75,7 @@ tap on the next start; one removed wrongly is lost.
 `<uses-permission android:name="android.permission.INTERNET"/>` and https. A report
 stays until the server answers 2xx.
 
-The server is the family's own ACRA backend (`~/PythonProjects/acra`, Flask + MariaDB).
+The server is the family's own ACRA backend ([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend), Flask + MariaDB).
 Checked against its source (2026-10-23):
 
 - Endpoint `POST <server>/report`, basic auth with the **reporter** user. That user may

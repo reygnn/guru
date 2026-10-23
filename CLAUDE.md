@@ -54,7 +54,7 @@ The host interface is `Guru.install`, `Guru.showPending`, `GuruSink` and `GuruTe
 9. **No code for a particular host.** What only Verso needs belongs in Verso (like
    `VersoGuruTexts`).
 10. **The ACRA fields are a contract** with the family's own ACRA backend
-    (`~/PythonProjects/acra`): `PACKAGE_NAME` and `STACK_TRACE` are required; it groups
+    ([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend)): `PACKAGE_NAME` and `STACK_TRACE` are required; it groups
     every Guru report by `PACKAGE_NAME` + the exception class of the trace's first line +
     `CUSTOM_DATA.GURU_MEDITATION`, and counts a `REPORT_ID` once. So the trace's first
     line, the number's format (`#XXXXXXXX.XXXXXXXX`, upper-case hex), that field's name
