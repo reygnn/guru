@@ -27,3 +27,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "guru"
 include(":library")
+include(":sample")

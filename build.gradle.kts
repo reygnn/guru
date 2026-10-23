@@ -2,5 +2,6 @@
 // org.jetbrains.kotlin.android plugin. Guru applies no Kotlin plugins at all.
 plugins {
     alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.android.application) apply false
     alias(libs.plugins.detekt) apply false
 }

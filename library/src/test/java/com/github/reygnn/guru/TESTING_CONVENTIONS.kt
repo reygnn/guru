@@ -73,10 +73,19 @@ package com.github.reygnn.guru
  * Only for what needs the Android runtime: `Guru.install` / `showPending`, the
  * chooser's answer, `GuruScreen`. Annotate the class with
  * `@RunWith(RobolectricTestRunner::class)`; the SDK is pinned once in
- * `src/test/resources/robolectric.properties`. A new Application per test
- * means a second `Guru.install` replaces the setup — the handler stays one.
- * Drive a plain `Activity` with `Robolectric.buildActivity(...)`; no
- * androidx.test on the classpath.
+ * `src/test/resources/robolectric.properties`. Drive a plain `Activity` with
+ * `Robolectric.buildActivity(...)`; no androidx.test API in the tests.
+ *
+ * Hold a GuruHostRule: Guru.install replaces the JVM-wide default handler, the
+ * rule puts it back, and it gives `io` as a manual FIFO (runIo, queuedIo).
+ *
+ * Harness traps already paid for:
+ *  - Back: idle the main looper first (the dialog's window attaches on a post),
+ *    then dispatch KEYCODE_BACK down/up on the dialog.
+ *  - The chooser's callback: since Android 15, createChooser files it under
+ *    EXTRA_CHOOSER_RESULT_INTENT_SENDER. Answer it with
+ *    `(sender as RoboIntentSender).pendingIntent.send()`, then idle the looper.
+ *  - "No app at all": `shadowOf(app).checkActivities(true)`.
  * ============================================================================
  */
 

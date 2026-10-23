@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-JVM unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 83 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 108 tests):
 
 ```
 GuruStoreTest       16  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -37,15 +37,29 @@ GuruHandlerTest      5  one capture per process, a failing capture swallowed, th
                         handler always reached with the original throwable
 GuruTextsTest        5  GuruTexts.English: the toast after sending, "+N more", both gestures
                         named
+GuruInstallTest      8  Robolectric: a second install keeps one handler; the receiver only for
+                        Share, not exported; exit records (ShadowActivityManager) — the look
+                        waits for io, the first start only marks, an ANR with its dump, a
+                        caught Java crash not twice, old exits and other reasons stay out
+GuruShowPendingTest  7  Robolectric: nothing pending, nothing shown; the alert after the exit
+                        look and on the host's main; number and "+N more"; a tap removes after
+                        the io step and only what was on screen; Back keeps all; a destroyed
+                        activity gets no alert
+GuruShareTest        5  Robolectric: hold starts the chooser (subject, text, mailTo); a picked
+                        app removes exactly the reports handed over, on io; no answer keeps all;
+                        no app to share with keeps them and says so
+GuruScreenTest       5  Robolectric: tap and hold each act once; TalkBack's action labels and
+                        description from GuruTexts; the alert closes with its activity
 ```
 
-Shared: `GuruFixtures.kt` (`testEnv`, `report(...)`, `GuruLocaleRule`).
+`sample/src/test`: `SampleGuruTextsTest` (2) — the sample's `GuruTexts` from `values` and
+`values-de`.
 
-Not covered on the JVM yet (planned as Robolectric tests): `Guru.kt` — install twice, the
-receiver only for `GuruSink.Share`, exit records via `ShadowActivityManager`, `showPending`,
-the chooser and its answer — and `GuruScreen.kt` (tap and hold act once, TalkBack actions
-carry `GuruTexts`, the alert closes with its activity). Until then: the device test in the
-README.
+Shared: `GuruFixtures.kt` (`testEnv`, `report(...)`, `GuruLocaleRule`) and, for the
+Robolectric tests, `GuruHostRule.kt` (the Application, `io` as a manual FIFO, the store,
+the default handler restored afterwards).
+
+Left to the device test (README): the real chooser, a real process death, the blink.
 
 ---
 

@@ -24,4 +24,6 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 
 [plugins]
 android-library = { id = "com.android.library", version.ref = "agp" }
+# sample/ only — the device-test host, never part of what a host pulls in.
+android-application = { id = "com.android.application", version.ref = "agp" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }

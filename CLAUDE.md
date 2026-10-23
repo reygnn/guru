@@ -23,7 +23,9 @@ Maven, no JitPack, no git submodule.
 
 - `library/` — the only code a host gets: one package, `com.github.reygnn.guru`.
 - `sample/` — a tiny host for the device test. Arrives in every host through the
-  subtree but is never built there.
+  subtree but is never built there. It compiles Guru exactly as a host does:
+  `sourceSets { named("main") { kotlin.directories += "../library/src/main/kotlin" } }`
+  (the AGP 9 spelling), not as a dependency on `:library`.
 
 The host interface is `Guru.install`, `Guru.showPending`, `GuruSink` and `GuruTexts`.
 
@@ -91,5 +93,6 @@ in `CHANGELOG.md`, newest first.
   `git subtree pull --prefix=guru https://github.com/reygnn/guru <tag> --squash`; the
   host's commit message names the tag.
 
-Before every tag: the device test on the A17 (see `README.md`, "Tests", and the sample
-app), USB only: `~/apk/install-aab-a17.sh`.
+Before every tag: the device test on the A17 (`README.md`, "Tests"). It runs on the
+sample's **debug** build — the only one with the ANR button — installed over USB with
+`ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :sample:installDebug`, not via `install-aab-a17.sh`.

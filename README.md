@@ -147,23 +147,36 @@ dialog dismisses itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 83 JVM tests, JUnit 4, no mocks. Real files in a `TemporaryFolder`, a
-real HTTP server on loopback for `AcraPost`, and the real desktop `org.json` for parsing
-the JSON back (the library Acrarium reads it with). Mutation-checked. The test classpath
-needs `junit` and `org.json`, both of which Verso already has.
+`library/src/test/java`: 108 tests, JUnit 4, no mocks, each mutation-checked.
 
-**Not covered on the JVM:** `Guru.kt` (wiring, `ApplicationExitInfo`, the chooser and
-its answer) and `GuruScreen.kt` (view, dialog). On the device: hold, cancel the chooser
-→ the report comes back on the next start; hold, pick an app → it is gone.
-A test on the device is worth it here: crash once with `adb shell am crash <package>`;
-for an ANR, block the main thread in a debug build (a long `Thread.sleep`) and touch the
-screen until the system kills the app; then start it again.
+- **83 plain JVM tests.** Real files in a `TemporaryFolder`, a real HTTP server on loopback
+  for `AcraPost`, and the real desktop `org.json` for parsing the JSON back (the library
+  Acrarium reads it with).
+- **25 Robolectric tests** for what the JVM alone cannot reach:
+  - `Guru.install`: one handler, the receiver registered only for `Share`.
+  - Exit records via `ShadowActivityManager`.
+  - `showPending`: tap, Back, a destroyed activity.
+  - The chooser and its answer.
+  - `GuruScreen`: tap and hold act once, TalkBack labels, closing with the activity.
+
+**On the device**, before every tag, with `sample/` — a tiny host that takes Guru as
+source, like Verso. Its debug build has an ANR button and keeps the plain application
+id, so install it with
+`ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :sample:installDebug`:
+
+1. `adb shell am crash com.github.reygnn.guru.sample`, start the app: the alert shows
+   `#80000001`.
+2. Hold, cancel the chooser, restart: the alert comes back.
+3. Hold, pick an app, restart: no alert.
+4. Press "ANR" and touch the screen until the system kills the app, restart:
+   `#80000002`, the thread dump in the report.
+5. TalkBack in German: the hint and both actions are read in German.
 
 ## Verified
 
 `./gradlew check` in this repo: the unit tests, lint (warnings as errors, no baseline)
 and detekt (Verso's rules, no baseline), with Kotlin warnings as errors for main and test
-sources. The build mirrors Verso's versions and rules, so what passes here compiles in a
+sources, for `library/` and `sample/`. The build mirrors Verso's versions and rules, so what passes here compiles in a
 host that pulls it.
 
 ## License

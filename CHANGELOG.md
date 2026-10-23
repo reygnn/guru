@@ -9,3 +9,6 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
   (2026-10-23). Sources and the 83 JVM tests unchanged, except for two lint findings:
   `Setup` holds the `Application` as such (StaticFieldLeak), `GuruView` suppresses
   ViewConstructor with its reason.
+- 25 Robolectric tests for `Guru.kt` and `GuruScreen` (108 in all).
+- `sample/`: a tiny host for the device test — crash button, ANR button in debug builds,
+  `GuruSink.Share`, its own `GuruTexts` with `values-de`.
