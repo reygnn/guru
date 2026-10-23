@@ -55,11 +55,16 @@ Chosen at install:
 
 **`GuruSink.Share(mailTo = null)`** needs no permission. The reports, as ACRA JSON,
 go via `ACTION_SEND` to an app the user picks. They are removed only once an app was
-**picked**: `createChooser(intent, null, intentSender)` answers through an immutable
+**picked**: `createChooser(intent, null, intentSender)` answers through an explicit
 `PendingIntent` that carries the report ids, to a receiver that is not exported. A
 cancelled chooser never answers; the reports stay for the next start. Nothing waits in
-memory, so a process death in between keeps them too (safe side). A chooser action
-that is no app (Android 14's "Copy") does not answer either.
+memory, so a process death in between keeps them too (safe side).
+
+Since Android 15 the chooser also answers for its own actions, with a `ChooserResult`.
+"Copy" answers, but does not count as handed over: only `CHOOSER_RESULT_SELECTED_COMPONENT`
+removes the reports; Copy, Edit, unknown or no result keep them. That is why the
+`PendingIntent` is mutable: the system fills the result in. A report kept wrongly costs a
+tap on the next start; one removed wrongly is lost.
 
 **`GuruSink.Acra(url, login, password)`** posts directly to an ACRA server. It needs
 `<uses-permission android:name="android.permission.INTERNET"/>` and https. A report
@@ -147,16 +152,17 @@ dialog dismisses itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 108 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 113 tests, JUnit 4, no mocks, each mutation-checked.
 
 - **83 plain JVM tests.** Real files in a `TemporaryFolder`, a real HTTP server on loopback
   for `AcraPost`, and the real desktop `org.json` for parsing the JSON back (the library
   Acrarium reads it with).
-- **25 Robolectric tests** for what the JVM alone cannot reach:
+- **30 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, the receiver registered only for `Share`.
   - Exit records via `ShadowActivityManager`.
   - `showPending`: tap, Back, a destroyed activity.
-  - The chooser and its answer.
+  - The chooser and its answer: only an app picked removes; Copy, Edit, unknown or no
+    result keep the reports.
   - `GuruScreen`: tap and hold act once, TalkBack labels, closing with the activity.
 
 **On the device**, before every tag, with `sample/` — a tiny host that takes Guru as
@@ -168,9 +174,12 @@ id, so install it with
    `#80000001`.
 2. Hold, cancel the chooser, restart: the alert comes back.
 3. Hold, pick an app, restart: no alert.
-4. Press "ANR" and touch the screen until the system kills the app, restart:
+4. Hold, "Copy", restart: the alert comes back. (One UI has its own share sheet: if
+   picking an app never removes the reports there, that is the safe side, but it belongs
+   in the caveats.)
+5. Press "ANR" and touch the screen until the system kills the app, restart:
    `#80000002`, the thread dump in the report.
-5. TalkBack in German: the hint and both actions are read in German.
+6. TalkBack in German: the hint and both actions are read in German.
 
 ## Verified
 

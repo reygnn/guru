@@ -1,11 +1,14 @@
 package com.github.reygnn.guru
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentSender
+import android.service.chooser.ChooserResult
 import android.view.ViewGroup
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -43,10 +46,34 @@ class GuruShareTest {
     private fun Intent.callback(): IntentSender =
         getParcelableExtra(Intent.EXTRA_CHOOSER_RESULT_INTENT_SENDER, IntentSender::class.java)!!
 
-    /** The chooser answering "an app was picked". */
-    private fun pick(chooser: Intent) {
-        (chooser.callback() as RoboIntentSender).pendingIntent.send()
+    /**
+     * The chooser answering, as Android 15+ does: the system fills [type] in as a ChooserResult;
+     * null answers without one. ChooserResult's constructor is hidden, hence the reflection.
+     */
+    private fun answer(chooser: Intent, type: Int?) {
+        val fillIn = Intent()
+        if (type != null) {
+            val result = ChooserResult::class.java
+                .getConstructor(Int::class.java, ComponentName::class.java, Boolean::class.java)
+                .newInstance(type, ComponentName("com.example.mail", "com.example.mail.Compose"), false)
+            fillIn.putExtra(Intent.EXTRA_CHOOSER_RESULT, result)
+        }
+        (chooser.callback() as RoboIntentSender).pendingIntent.send(host.app, 0, fillIn)
         host.idleMain()
+    }
+
+    private fun pick(chooser: Intent) = answer(chooser, ChooserResult.CHOOSER_RESULT_SELECTED_COMPONENT)
+
+    /** A chooser answer that is no app picked: everything stays, nothing queued. */
+    private fun assertKeptAfter(type: Int?) {
+        host.crashed(a)
+        val chooser = hold()
+
+        answer(chooser, type)
+
+        assertEquals(0, host.queuedIo())
+        host.runIo()
+        assertEquals(listOf(a), host.store.pending().map { it.id })
     }
 
     @Test
@@ -86,6 +113,26 @@ class GuruShareTest {
 
         assertEquals(1, host.queuedIo())
         assertEquals(listOf(a), host.store.pending().map { it.id })
+    }
+
+    @Test
+    fun `Copy answers but keeps everything`() = assertKeptAfter(ChooserResult.CHOOSER_RESULT_COPY)
+
+    @Test
+    fun `Edit answers but keeps everything`() = assertKeptAfter(ChooserResult.CHOOSER_RESULT_EDIT)
+
+    @Test
+    fun `an unknown result keeps everything`() = assertKeptAfter(ChooserResult.CHOOSER_RESULT_UNKNOWN)
+
+    @Test
+    fun `an answer without a result keeps everything`() = assertKeptAfter(null)
+
+    @Test
+    fun `the callback takes the system's fill-in`() {
+        host.crashed(a)
+        val chooser = hold()
+
+        assertFalse((chooser.callback() as RoboIntentSender).pendingIntent.isImmutable)
     }
 
     @Test

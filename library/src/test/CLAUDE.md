@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 108 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 113 tests):
 
 ```
 GuruStoreTest       16  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -45,9 +45,11 @@ GuruShowPendingTest  7  Robolectric: nothing pending, nothing shown; the alert a
                         look and on the host's main; number and "+N more"; a tap removes after
                         the io step and only what was on screen; Back keeps all; a destroyed
                         activity gets no alert
-GuruShareTest        5  Robolectric: hold starts the chooser (subject, text, mailTo); a picked
-                        app removes exactly the reports handed over, on io; no answer keeps all;
-                        no app to share with keeps them and says so
+GuruShareTest       10  Robolectric: hold starts the chooser (subject, text, mailTo); a picked
+                        app (ChooserResult SELECTED_COMPONENT) removes exactly the reports
+                        handed over, on io; Copy, Edit, unknown, no result and no answer keep
+                        all; the callback is mutable (the fill-in arrives); no app to share
+                        with keeps them and says so
 GuruScreenTest       5  Robolectric: tap and hold each act once; TalkBack's action labels and
                         description from GuruTexts; the alert closes with its activity
 ```

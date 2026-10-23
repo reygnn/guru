@@ -12,6 +12,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
+import android.service.chooser.ChooserResult
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
@@ -49,11 +50,15 @@ internal object Guru {
         fun toast(text: String) = context.mainExecutor.execute { Toast.makeText(context, text, Toast.LENGTH_LONG).show() }
     }
 
-    // The chooser's answer once the user picked an app: the ids it carries are the ones handed
-    // over. A cancelled chooser never answers — those reports stay for the next start.
+    // The chooser's answer: the ids it carries are the ones handed over. Since Android 15 it also
+    // answers for its own actions (Copy, Edit), with what happened in EXTRA_CHOOSER_RESULT. Only
+    // an app picked counts as handed over; Copy, Edit, unknown or no result keep the reports
+    // (hard rule 7: a copy may never be pasted anywhere). A cancelled chooser never answers.
     private val shared = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val s = setup ?: return
+            val result = intent.getParcelableExtra(Intent.EXTRA_CHOOSER_RESULT, ChooserResult::class.java)
+            if (result?.type != ChooserResult.CHOOSER_RESULT_SELECTED_COMPONENT) return
             val ids = intent.getStringArrayExtra(EXTRA_IDS)?.toList() ?: return
             s.io(guarded("removing shared reports") { s.store.remove(ids) })
         }
@@ -134,9 +139,11 @@ internal object Guru {
     }
 
     // The ids ride in the chooser's callback, so nothing waits in memory: whenever an app is
-    // picked, [shared] removes exactly these. Immutable — the chooser's fill-in (which app) is not
-    // needed, only that it answers. A newer share cancels an older callback still waiting: its
-    // reports stay, which is the safe side.
+    // picked, [shared] removes exactly these. Mutable, or the system's fill-in — the ChooserResult
+    // that tells an app picked from Copy — is dropped. The price: a fill-in could overwrite extras,
+    // the ids too. Only the system chooser holds this sender, the intent stays explicit (package
+    // set, as Android 14+ requires of a mutable one), and remove touches report files only.
+    // A newer share cancels an older callback still waiting: its reports stay, the safe side.
     private fun share(activity: Activity, s: Setup, sink: GuruSink.Share, pending: Pending) {
         val intent = Intent(Intent.ACTION_SEND)
             .setType("text/plain")
@@ -150,7 +157,7 @@ internal object Guru {
             activity,
             0,
             answer,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_CANCEL_CURRENT,
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_CANCEL_CURRENT,
         )
         try {
             activity.startActivity(Intent.createChooser(intent, null, callback.intentSender))

@@ -83,8 +83,12 @@ package com.github.reygnn.guru
  *  - Back: idle the main looper first (the dialog's window attaches on a post),
  *    then dispatch KEYCODE_BACK down/up on the dialog.
  *  - The chooser's callback: since Android 15, createChooser files it under
- *    EXTRA_CHOOSER_RESULT_INTENT_SENDER. Answer it with
- *    `(sender as RoboIntentSender).pendingIntent.send()`, then idle the looper.
+ *    EXTRA_CHOOSER_RESULT_INTENT_SENDER. Answer it as the system does, with a
+ *    fill-in carrying EXTRA_CHOOSER_RESULT:
+ *    `(sender as RoboIntentSender).pendingIntent.send(app, 0, fillIn)`, then idle
+ *    the looper. ChooserResult's constructor is hidden: build it by reflection
+ *    (GuruShareTest.answer). Robolectric drops the fill-in of an immutable
+ *    PendingIntent, as a device does.
  *  - "No app at all": `shadowOf(app).checkActivities(true)`.
  * ============================================================================
  */

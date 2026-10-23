@@ -46,8 +46,9 @@ The host interface is `Guru.install`, `Guru.showPending`, `GuruSink` and `GuruTe
    field is a break (major version).
 6. **Write first, then move `exits-seen`.** A death in between repeats an exit, it never
    loses one.
-7. **Delete only what is gone:** on "continue", on an app picked in the share chooser,
-   on a 2xx from the ACRA server.
+7. **Delete only what is gone:** on "continue", on an app picked in the share chooser
+   (`ChooserResult` `SELECTED_COMPONENT` — Copy, Edit, unknown or no result keep the
+   reports), on a 2xx from the ACRA server.
 8. **No manifest, no resources, everything `internal`.** Texts come from the host via
    `GuruTexts`; only the Amiga lines stay fixed English.
 9. **No code for a particular host.** What only Verso needs belongs in Verso (like
