@@ -4,8 +4,8 @@ package com.github.reygnn.guru
  * What went wrong — the first half of the Guru number: the Amiga's dead-end flag (every one of
  * these took the process down), then 1, 2, 3 in declaration order — append, never reorder.
  * [title] heads the report's trace for the kinds that have no Java exception, so a server that
- * groups by the first line (Acrarium does) sees "ApplicationNotResponding: …" instead of a
- * thread dump's header.
+ * groups by the first line (Acrarium does; the family's backend by its class) sees
+ * "ApplicationNotResponding: …" instead of a thread dump's header.
  */
 internal enum class GuruKind(val title: String) {
     CRASH("Crash"),

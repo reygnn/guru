@@ -68,15 +68,26 @@ tap on the next start; one removed wrongly is lost.
 
 **`GuruSink.Acra(url, login, password)`** posts directly to an ACRA server. It needs
 `<uses-permission android:name="android.permission.INTERNET"/>` and https. A report
-stays until the server answers 2xx; a resend is harmless, because the server ignores a
-`REPORT_ID` it already has. Checked against Acrarium's source (2026-10-15):
+stays until the server answers 2xx.
 
-- Endpoint `POST <server>/report`, basic auth with the app's reporter user.
-- Required (missing → refused): `REPORT_ID`, `STACK_TRACE`, `USER_CRASH_DATE` in the
-  format `yyyy-MM-dd'T'HH:mm:ss.SSSXXX` (otherwise silently "now"), and `INSTALLATION_ID`.
-- Bugs are grouped by the trace's first line, its first non-`android.`/`java.` frame and
-  its first `Caused by:`. That is why ANRs and native crashes start with
-  `ApplicationNotResponding: …` / `NativeCrash: …`.
+The server is the family's own ACRA backend (`~/PythonProjects/acra`, Flask + MariaDB).
+Checked against its source (2026-10-23):
+
+- Endpoint `POST <server>/report`, basic auth with the reporter user.
+- Required (missing → 400): `PACKAGE_NAME` and `STACK_TRACE`. It also reads
+  `APP_VERSION_CODE` (for the ProGuard mapping), `APP_VERSION_NAME`, `ANDROID_VERSION`,
+  `PHONE_MODEL` and `BRAND`.
+- Bugs are grouped by the exception class from the trace's first line plus the `at` frames
+  among its first three lines; the message is left out. A known bug always gets 200,
+  so a resend only raises its count.
+- ANRs and native crashes have no frames there. For those the backend groups by
+  `PACKAGE_NAME` and `CUSTOM_DATA.GURU_MEDITATION` (Guru's number) instead. That is why
+  their trace starts `ApplicationNotResponding: …` / `NativeCrash: …` and why the number is
+  sent.
+
+The other fields (`REPORT_ID`, `INSTALLATION_ID`, `USER_CRASH_DATE` in
+`yyyy-MM-dd'T'HH:mm:ss.SSSXXX`) are what a stock ACRA server such as Acrarium requires.
+Guru keeps sending them, so it also works with one of those.
 
 The network call blocks the given `io` for up to 2 × 15 s per report.
 

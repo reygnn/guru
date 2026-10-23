@@ -53,9 +53,14 @@ The host interface is `Guru.install`, `Guru.showPending`, `GuruSink` and `GuruTe
    `GuruTexts`; only the Amiga lines stay fixed English.
 9. **No code for a particular host.** What only Verso needs belongs in Verso (like
    `VersoGuruTexts`).
-10. **The ACRA fields are a contract** with Acrarium: `REPORT_ID`, `STACK_TRACE`,
-    `USER_CRASH_DATE` in the format `yyyy-MM-dd'T'HH:mm:ss.SSSXXX`, `INSTALLATION_ID`.
-    A change there is checked against Acrarium's source.
+10. **The ACRA fields are a contract** with the family's own ACRA backend
+    (`~/PythonProjects/acra`): `PACKAGE_NAME` and `STACK_TRACE` are required; it groups
+    by the exception class plus the `at` frames in the trace's first three lines, and for
+    ANRs and native crashes (no frames there) by `PACKAGE_NAME` + `CUSTOM_DATA.GURU_MEDITATION`.
+    So the trace's head, the number's format (`#XXXXXXXX.XXXXXXXX`) and that field's name
+    are part of the contract. A change there is checked against the backend's
+    `routes_api.py` / `utils.py`. The stock-ACRA fields (`REPORT_ID`, `INSTALLATION_ID`,
+    `USER_CRASH_DATE` as `yyyy-MM-dd'T'HH:mm:ss.SSSXXX`) stay, for Acrarium compatibility.
 
 Working rules, as in Verso: comments and code in English; every `@Suppress` /
 `@SuppressLint` carries its reason on the line above; every fix gets a mutation-checked

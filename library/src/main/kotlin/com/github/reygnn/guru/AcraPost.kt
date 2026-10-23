@@ -5,8 +5,8 @@ import java.net.URI
 import java.util.Base64
 
 /**
- * One report to an ACRA server (Acrarium: POST <server>/report, basic auth with the app's
- * reporter user). Plain java.net — no client library. Needs the INTERNET permission in the
+ * One report to an ACRA server (POST <server>/report, basic auth with the app's reporter
+ * user). Plain java.net — no client library. Needs the INTERNET permission in the
  * host app; without it the connect throws and the report stays. Blocks for up to two
  * [TIMEOUT_MS]: call it on the IO thread only.
  */

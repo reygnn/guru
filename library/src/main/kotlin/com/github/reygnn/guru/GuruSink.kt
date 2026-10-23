@@ -14,7 +14,7 @@ internal sealed interface GuruSink {
     data class Share(val mailTo: String? = null) : GuruSink
 
     /**
-     * Straight to an ACRA server, e.g. Acrarium: [url] is its report endpoint
+     * Straight to an ACRA server (the family's own backend, or Acrarium): [url] is its report endpoint
      * ("https://acra.example.org/report"), [login]/[password] the app's reporter user.
      * Needs `<uses-permission android:name="android.permission.INTERNET"/>` and https (cleartext
      * is blocked by default). A report stays until the server answers 2xx.

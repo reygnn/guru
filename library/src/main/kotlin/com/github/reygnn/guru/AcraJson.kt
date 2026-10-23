@@ -6,11 +6,12 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * A report as ACRA's JSON, the shape Acrarium takes at POST /report. Acrarium requires
- * REPORT_ID, STACK_TRACE, USER_CRASH_DATE and INSTALLATION_ID (getString: a missing one fails
- * the request); it groups bugs by the trace's first line, its first non-android/java frame and
- * its first "Caused by:". The rest is optional and shown as given. Hand-written, so the module
- * needs no org.json on the JVM; the escaping is the part under test.
+ * A report as ACRA's JSON, for POST /report. The family's backend requires PACKAGE_NAME and
+ * STACK_TRACE, groups by the exception class plus the frames in the trace's first three lines,
+ * and — for ANRs and native crashes, which have none there — by PACKAGE_NAME and
+ * CUSTOM_DATA.GURU_MEDITATION (CLAUDE.md, hard rule 10). REPORT_ID, USER_CRASH_DATE and
+ * INSTALLATION_ID are what Acrarium requires; they stay, so a stock ACRA server works too.
+ * Hand-written, so the module needs no org.json on the JVM; the escaping is the part under test.
  */
 internal object AcraJson {
 
