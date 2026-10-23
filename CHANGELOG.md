@@ -16,5 +16,6 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
   5 more tests (113). Checked on the A17 (One UI, Android 16, the AOSP intentresolver
   chooser): "Copy" keeps the report, picking an app removes it; the previous build
   removed it on "Copy".
+- TalkBack no longer reads doubled periods ("Software Failure.. Press").
 - `sample/`: a tiny host for the device test — crash button, ANR button in debug builds,
   `GuruSink.Share`, its own `GuruTexts` with `values-de`.

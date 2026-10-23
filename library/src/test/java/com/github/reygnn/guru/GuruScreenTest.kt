@@ -75,7 +75,10 @@ class GuruScreenTest {
     fun `TalkBack reads the lines and the host's hint`() {
         val said = view(show()).contentDescription.toString()
 
-        assertEquals((lines + German.hint).joinToString(". "), said)
+        assertEquals(
+            "Software Failure. Press left mouse button to continue. Guru Meditation #80000001.4A3F21C0. " + German.hint,
+            said,
+        )
     }
 
     @Test

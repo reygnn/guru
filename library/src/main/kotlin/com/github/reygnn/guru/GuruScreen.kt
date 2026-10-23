@@ -112,7 +112,8 @@ internal class GuruView(
     }
 
     init {
-        contentDescription = (lines + hint).joinToString(". ")
+        // The quote's lines end on a period already; one more would read "Failure.. Press".
+        contentDescription = (lines + hint).joinToString(". ") { it.trimEnd('.') }
         accessibilityDelegate = object : AccessibilityDelegate() {
             override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
                 super.onInitializeAccessibilityNodeInfo(host, info)
