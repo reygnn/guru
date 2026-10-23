@@ -34,7 +34,7 @@ class GuruTextsTest {
 
     @Test
     fun `the screen's words name both gestures`() {
-        assertEquals("tap: continue · hold: send · back: later", english.hint)
+        assertEquals("double-tap: continue · hold: send · back: later", english.hint)
         assertEquals("continue, discard the report", english.actionContinue)
         assertEquals("send the report", english.actionSend)
     }

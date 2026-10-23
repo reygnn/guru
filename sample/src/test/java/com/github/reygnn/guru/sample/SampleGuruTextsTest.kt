@@ -14,7 +14,7 @@ class SampleGuruTextsTest {
 
     @Test
     fun `English by default`() {
-        assertEquals("tap: continue · hold: send · back: later", texts.hint)
+        assertEquals("double-tap: continue · hold: send · back: later", texts.hint)
         assertEquals("+1 more", texts.more(1))
         assertEquals("Guru: 1 report sent", texts.sent(1, 1))
         assertEquals("Guru: 3 reports sent", texts.sent(3, 3))
@@ -25,7 +25,7 @@ class SampleGuruTextsTest {
     @Test
     @Config(qualifiers = "de")
     fun `German from values-de`() {
-        assertEquals("tippen: weiter · halten: senden · zurück: später", texts.hint)
+        assertEquals("doppeltippen: weiter · halten: senden · zurück: später", texts.hint)
         assertEquals("weiter, Bericht verwerfen", texts.actionContinue)
         assertEquals("Bericht senden", texts.actionSend)
         assertEquals("+2 weitere", texts.more(2))

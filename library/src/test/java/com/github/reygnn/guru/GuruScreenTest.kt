@@ -17,7 +17,7 @@ class GuruScreenTest {
     @get:Rule val host = GuruHostRule()
 
     private object German : GuruTexts {
-        override val hint = "tippen: weiter · halten: senden · zurück: später"
+        override val hint = "doppeltippen: weiter · halten: senden · zurück: später"
         override val actionContinue = "weiter, Bericht verwerfen"
         override val actionSend = "Bericht senden"
         override fun more(count: Int) = "+$count weitere"
@@ -35,7 +35,7 @@ class GuruScreenTest {
     private fun view(dialog: Dialog) = dialog.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
 
     @Test
-    fun `a tap continues once`() {
+    fun `continue acts once`() {
         val dialog = show()
         val view = view(dialog)
 
@@ -49,7 +49,7 @@ class GuruScreenTest {
     }
 
     @Test
-    fun `a hold sends once`() {
+    fun `send acts once`() {
         val dialog = show()
         val view = view(dialog)
 

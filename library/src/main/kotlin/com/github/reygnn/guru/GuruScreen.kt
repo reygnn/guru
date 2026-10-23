@@ -13,15 +13,19 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Bundle
 import android.util.TypedValue
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
+import kotlin.math.hypot
 
 /**
  * The alert: black screen, red text, a red border that blinks — unless the system's animations
- * are off (Settings › Accessibility › Remove animations), then it just stays lit. Tap = left
- * button (continue: the reports go), hold = right button (send), Back = neither (they come
+ * are off (Settings › Accessibility › Remove animations), then it just stays lit. Double-tap =
+ * left button (continue: the reports go), hold = right button (send), Back = neither (they come
  * back on the next start). Dismisses itself when its activity is destroyed.
  */
 internal object GuruScreen {
@@ -69,6 +73,12 @@ internal object GuruScreen {
 /**
  * Drawn, not laid out: every size is computed when the size or the insets change, none in onDraw.
  * The quote [lines] and the host's [hint] each shrink to fit the width — a translation may be longer.
+ *
+ * Touch goes through a [GestureDetector], never View's own click handling: the view fills the
+ * screen, so View would take any touch that ends on it — a swipe, a finger laid on a dimmed screen
+ * to wake it — as a click and discard the reports. Here a double-tap continues ([performClick]) and
+ * a still hold sends ([performLongClick]); a single tap does nothing, and a finger that moves past
+ * the touch slop cancels both. TalkBack acts through the click and long-click actions, unchanged.
  */
 // Built in code only, never inflated from XML: the tools constructors would have no lines to draw.
 @SuppressLint("ViewConstructor")
@@ -103,6 +113,39 @@ internal class GuruView(
         strokeWidth = BORDER_DP * metrics.density
     }
 
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+
+    private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+        private var secondDownX = 0f
+        private var secondDownY = 0f
+        private var secondTapMoved = false
+
+        // Every touch is ours from its first contact, or the rest of it never arrives.
+        override fun onDown(e: MotionEvent) = true
+
+        // The second tap acts on its lift, and only if it stayed put: a finger that lands twice and
+        // then slides is not a double-tap.
+        override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    secondDownX = e.x
+                    secondDownY = e.y
+                    secondTapMoved = false
+                }
+                MotionEvent.ACTION_MOVE -> if (moved(e)) secondTapMoved = true
+                MotionEvent.ACTION_UP -> if (!secondTapMoved && !moved(e)) performClick()
+            }
+            return true
+        }
+
+        // GestureDetector already drops a long press once the finger leaves the touch slop.
+        override fun onLongPress(e: MotionEvent) {
+            performLongClick()
+        }
+
+        private fun moved(e: MotionEvent) = hypot(e.x - secondDownX, e.y - secondDownY) > touchSlop
+    })
+
     private val blink = object : Runnable {
         override fun run() {
             lit = !lit
@@ -122,6 +165,10 @@ internal class GuruView(
             }
         }
     }
+
+    // performClick is called — by the double-tap, not here: View's click handling stays out.
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean = gestures.onTouchEvent(event)
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()

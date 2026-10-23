@@ -11,7 +11,7 @@ internal interface GuruTexts {
     /** Under the alert box, and the end of what a screen reader says for it. */
     val hint: String
 
-    /** The screen reader's name for a tap (continue: the reports go). */
+    /** The screen reader's name for continuing — a double-tap (the reports go). */
     val actionContinue: String
 
     /** The screen reader's name for a hold (send). */
@@ -24,7 +24,7 @@ internal interface GuruTexts {
     fun sent(sent: Int, total: Int): String
 
     object English : GuruTexts {
-        override val hint = "tap: continue · hold: send · back: later"
+        override val hint = "double-tap: continue · hold: send · back: later"
         override val actionContinue = "continue, discard the report"
         override val actionSend = "send the report"
 

@@ -5,7 +5,7 @@
     <string name="sample_crash">Absturz</string>
     <string name="sample_anr">ANR (blockiert den Main-Thread)</string>
 
-    <string name="guru_hint">tippen: weiter · halten: senden · zurück: später</string>
+    <string name="guru_hint">doppeltippen: weiter · halten: senden · zurück: später</string>
     <string name="guru_action_continue">weiter, Bericht verwerfen</string>
     <string name="guru_action_send">Bericht senden</string>
     <plurals name="guru_more">

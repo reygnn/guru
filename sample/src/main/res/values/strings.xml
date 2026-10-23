@@ -6,7 +6,7 @@
     <string name="sample_anr">ANR (blocks the main thread)</string>
 
     <!-- Guru's words (GuruTexts). The Amiga lines themselves stay English. -->
-    <string name="guru_hint">tap: continue · hold: send · back: later</string>
+    <string name="guru_hint">double-tap: continue · hold: send · back: later</string>
     <string name="guru_action_continue">continue, discard the report</string>
     <string name="guru_action_send">send the report</string>
     <plurals name="guru_more">

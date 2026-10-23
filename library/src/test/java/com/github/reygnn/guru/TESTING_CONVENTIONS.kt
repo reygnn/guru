@@ -90,6 +90,11 @@ package com.github.reygnn.guru
  *    (GuruShareTest.answer). Robolectric drops the fill-in of an immutable
  *    PendingIntent, as a device does.
  *  - "No app at all": `shadowOf(app).checkActivities(true)`.
+ *  - Touch (GuruTouchTest): idle the main looper first — the dialog's window attaches
+ *    and lays the view out (Robolectric: 320 px wide). Keep every move inside the
+ *    view: View's own click handling drops a touch that leaves it, so a swipe off the
+ *    edge passes even without the gesture rules. Times come from SystemClock and
+ *    move with `idleFor`; use ViewConfiguration's timeouts, not literals.
  * ============================================================================
  */
 

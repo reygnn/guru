@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 113 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 123 tests):
 
 ```
 GuruStoreTest       16  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -50,8 +50,11 @@ GuruShareTest       10  Robolectric: hold starts the chooser (subject, text, mai
                         handed over, on io; Copy, Edit, unknown, no result and no answer keep
                         all; the callback is mutable (the fill-in arrives); no app to share
                         with keeps them and says so
-GuruScreenTest       5  Robolectric: tap and hold each act once; TalkBack's action labels and
-                        description from GuruTexts; the alert closes with its activity
+GuruScreenTest       5  Robolectric: continue and send each act once; TalkBack's action labels
+                        and description from GuruTexts; the alert closes with its activity
+GuruTouchTest       10  Robolectric, real MotionEvents: a double-tap continues, a still hold
+                        sends; a single tap, two slow taps, a swipe, a slide past the slop and a
+                        sliding second tap do nothing; TalkBack's click and long click act
 ```
 
 `sample/src/test`: `SampleGuruTextsTest` (2) — the sample's `GuruTexts` from `values` and

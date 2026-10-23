@@ -6,14 +6,16 @@
 │     Press left mouse button to continue.     │
 │      Guru Meditation #80000001.4A3F21C0      │
 └──────────────────────────────────────────────┘
-       tap: continue · hold: send · back: later   ← the host's words
+       double-tap: continue · hold: send · back: later   ← the host's words
 ```
 
 A crash reporter for Android, vendored as source: no dependency, no permission, no
 thread of its own. A crash is written to disk before the process dies; on the next
 start the app shows the Amiga alert — black, red, the border blinking — and the user
-decides: **tap** (left button) continues and discards, **hold** (right button) sends,
+decides: **double-tap** (left button) continues and discards, **hold** (right button) sends,
 **Back** leaves it for the next start.
+A single tap or a swipe does nothing: a finger laid on a dimmed screen to wake it must not
+discard a report. Moving past the touch slop cancels a double-tap and a hold alike.
 
 Platform APIs and the Kotlin stdlib only, minSdk 36 like the rest of the family.
 
@@ -163,18 +165,19 @@ dialog dismisses itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 113 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 123 tests, JUnit 4, no mocks, each mutation-checked.
 
 - **83 plain JVM tests.** Real files in a `TemporaryFolder`, a real HTTP server on loopback
   for `AcraPost`, and the real desktop `org.json` for parsing the JSON back (the library
   Acrarium reads it with).
-- **30 Robolectric tests** for what the JVM alone cannot reach:
+- **40 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, the receiver registered only for `Share`.
   - Exit records via `ShadowActivityManager`.
   - `showPending`: tap, Back, a destroyed activity.
   - The chooser and its answer: only an app picked removes; Copy, Edit, unknown or no
     result keep the reports.
-  - `GuruScreen`: tap and hold act once, TalkBack labels, closing with the activity.
+  - `GuruScreen`: continue and send act once, TalkBack labels, closing with the activity.
+  - Touch: a double-tap continues, a still hold sends; a single tap or a swipe does nothing.
 
 **On the device**, before every tag, with `sample/` — a tiny host that takes Guru as
 source, like Verso. Its debug build has an ANR button and keeps the plain application
