@@ -6,14 +6,15 @@
 │     Press left mouse button to continue.     │
 │      Guru Meditation #80000001.4A3F21C0      │
 └──────────────────────────────────────────────┘
-       double-tap: continue · hold: send · back: later   ← the host's words
+       double-tap: continue · hold: save · back: later   ← the host's words
 ```
 
 A crash reporter for Android, vendored as source: no dependency, no permission, no
 thread of its own. A crash is written to disk before the process dies; on the next
 start the app shows the Amiga alert — black, red, the border blinking — and the user
-decides: **double-tap** (left button) continues and discards, **hold** (right button) sends,
-**Back** leaves it for the next start.
+decides: **double-tap** (left button) continues and discards, **hold** (right button)
+saves the reports as ZIP files to `Download/Guru/` and offers them to share, **Back** leaves
+them for the next start.
 A single tap or a swipe does nothing: a finger laid on a dimmed screen to wake it must not
 discard a report. Moving past the touch slop cancels a double-tap and a hold alike.
 
@@ -51,37 +52,31 @@ thread's first three frames.
 `adb`), written atomically (`.new` + fsync → rename → fsync dir). At most 8, the newest.
 A crash loop cannot fill the disk. Beside them: `installation-id` and `exits-seen`.
 
-## Sending
+## Saving
 
-Chosen at install:
+A hold saves every report on screen as a ZIP of its own through `MediaStore.Downloads`, in
+`Download/Guru/`: no permission, no manifest entry. One entry per ZIP, the report's ACRA
+JSON, unchanged. The file is named after the app, its version and the crash time in local
+time — `Verso-0.3.1-2026-10-24_14-03-12.zip`, the entry `….json`. A character a file name
+should not carry becomes `_`; MediaStore adds ` (1)` to a second file of the same second.
 
-**`GuruSink.Share(mailTo = null)`** needs no permission. The reports, as ACRA JSON,
-go via `ACTION_SEND` to an app the user picks. They are removed only once an app was
-**picked**: `createChooser(intent, null, intentSender)` answers through an explicit
-`PendingIntent` that carries the report ids, to a receiver that is not exported. A
-cancelled chooser never answers; the reports stay for the next start. Nothing waits in
-memory, so a process death in between keeps them too (safe side).
+Each file shows only once complete (`IS_PENDING`). Once it is saved, the file is the
+user's and Guru removes its own copy, report by report. A report whose file cannot be
+saved stays for the next start; the toast says how many of how many were saved.
 
-One share carries whole reports up to 100 K chars and removes only those; the rest stay
-for the next share. The start of the chooser is one Binder transaction of at most 1 MB,
-and Android copies the text into it about three times. A first report too big alone goes
-cut, so that it can leave at all. A start the system refuses anyway keeps the reports and
-shows the same toast as "no app to share with".
+Then Guru offers the saved files in the share chooser — `ACTION_SEND`, or
+`ACTION_SEND_MULTIPLE` for several, with read access for the app picked. Only the files'
+URIs travel, so there is no size limit. What happens in the chooser no longer matters: picked,
+copied or cancelled, the files are in `Download/Guru/` already. `Download` is shared
+storage: an app with access to all files, or a sync tool, can read the reports there.
 
-To get shared reports into the backend anyway, save the shared text and run the backend's
-`tools/import_share.py` on it; it posts each report like `GuruSink.Acra` would.
+To get the reports into the backend, share the ZIPs to guru2acra, or run the backend's
+`tools/import_share.py` on them.
 
-Since Android 15 the chooser also answers for its own actions, with a `ChooserResult`.
-"Copy" answers, but does not count as handed over: only `CHOOSER_RESULT_SELECTED_COMPONENT`
-removes the reports; Copy, Edit, unknown or no result keep them. That is why the
-`PendingIntent` is mutable: the system fills the result in. A report kept wrongly costs a
-tap on the next start; one removed wrongly is lost.
+## The backend contract
 
-**`GuruSink.Acra(url, login, password)`** posts directly to an ACRA server. It needs
-`<uses-permission android:name="android.permission.INTERNET"/>` and https. A report
-stays until the server answers 2xx.
-
-The server is the family's own ACRA backend ([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend), Flask + MariaDB).
+The JSON in the ZIP is what the family's own ACRA backend
+([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend), Flask + MariaDB) takes.
 Checked against its source (2026-10-23):
 
 - Endpoint `POST <server>/report`, basic auth with the **reporter** user. That user may
@@ -101,9 +96,7 @@ Checked against its source (2026-10-23):
 
 The other fields (`REPORT_ID`, `INSTALLATION_ID`, `USER_CRASH_DATE` in
 `yyyy-MM-dd'T'HH:mm:ss.SSSXXX`) are what a stock ACRA server such as Acrarium requires.
-Guru keeps sending them, so it also works with one of those.
-
-The network call blocks the given `io` for up to 2 × 15 s per report.
+Guru keeps writing them, so a report also posts to one of those.
 
 ## Texts
 
@@ -115,14 +108,15 @@ the toast. These are passed as `GuruTexts` from the app's resources:
 internal class AppGuruTexts(private val context: Context) : GuruTexts {
     override val hint get() = context.getString(R.string.guru_hint)
     override val actionContinue get() = context.getString(R.string.guru_action_continue)
-    override val actionSend get() = context.getString(R.string.guru_action_send)
+    override val actionSave get() = context.getString(R.string.guru_action_save)
     override fun more(count: Int) = context.resources.getQuantityString(R.plurals.guru_more, count, count)
-    override fun sent(sent: Int, total: Int) = when { … }
+    override fun saved(saved: Int, total: Int) = when { … }
 }
 ```
 
 They are read each time the screen is built or a toast is shown, so a language change in
-between is picked up. Without `texts`: `GuruTexts.English`. A translated hint that is
+between is picked up. Without `texts`: `GuruTexts.English`. Every member has a default (the
+English one), so a host overrides only what it translates. A translated hint that is
 longer shrinks to the width, like the alert lines.
 
 ## Release builds
@@ -144,19 +138,19 @@ Guru is vendored as source with `git subtree`, pinned to a tag — never as a li
 (everything stays `internal`) and never from `main`:
 
 ```
-git subtree add --prefix=guru https://github.com/reygnn/guru v1.0.0 --squash
+git subtree add --prefix=guru https://github.com/reygnn/guru v2.0.0 --squash
 ```
 
 The host compiles `guru/library/src/main/kotlin` as part of its app module (an extra
 Kotlin source directory) and adds the same directory to detekt's `source`. Only the `.kt`
-files arrive: Guru has no manifest and no resources. The host declares INTERNET itself if
-it uses `GuruSink.Acra`, and brings its own words as `GuruTexts`.
+files arrive: Guru has no manifest and no resources. The host brings its own words as
+`GuruTexts`.
 
 An update is a pull of the next tag; `guru/` is never edited in the host. A fix goes
 upstream first, gets a tag, and comes back with:
 
 ```
-git subtree pull --prefix=guru https://github.com/reygnn/guru v1.0.1 --squash
+git subtree pull --prefix=guru https://github.com/reygnn/guru v2.0.1 --squash
 ```
 
 No `consumer-rules.pro`: the host decides about `-dontobfuscate` in its own ProGuard file
@@ -166,7 +160,7 @@ Everything is `internal`. The host has two lines:
 
 ```kotlin
 // Application.onCreate — io: the app's own single IO thread; texts: its own words
-Guru.install(this, GuruSink.Share(), io = io::execute, texts = AppGuruTexts(this))
+Guru.install(this, io = io::execute, texts = AppGuruTexts(this))
 
 // first Activity.onCreate — onUi: the app's own way back to the main thread
 Guru.showPending(this, ::onUi)
@@ -177,19 +171,20 @@ dialog dismisses itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 129 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 124 tests, JUnit 4, no mocks, each mutation-checked.
 
-- **86 plain JVM tests.** Real files in a `TemporaryFolder`, a real HTTP server on loopback
-  for `AcraPost`, and the real desktop `org.json` for parsing the JSON back (the library
+- **83 plain JVM tests.** Real files in a `TemporaryFolder`, the ZIP read back with
+  `ZipInputStream`, and the real desktop `org.json` for parsing the JSON back (the library
   Acrarium reads it with).
-- **43 Robolectric tests** for what the JVM alone cannot reach:
-  - `Guru.install`: one handler, the receiver registered only for `Share`.
+- **41 Robolectric tests** for what the JVM alone cannot reach:
+  - `Guru.install`: one handler, no receiver.
   - Exit records via `ShadowActivityManager`, an unreadable ANR dump too.
   - `showPending`: tap, Back, a destroyed activity.
-  - The chooser and its answer: only an app picked removes, and only the reports in the
-    text; Copy, Edit, unknown or no result keep them, and so does a refused start.
-  - `GuruScreen`: continue and send act once, TalkBack labels, closing with the activity.
-  - Touch: a double-tap continues, a still hold sends; a single tap or a swipe does nothing.
+  - Saving through a fake MediaStore provider: one ZIP per report in `Download/Guru`,
+    removed once saved, a refused or failed save keeps it; the chooser offers the files
+    with read access, and one that cannot start costs nothing.
+  - `GuruScreen`: continue and save act once, TalkBack labels, closing with the activity.
+  - Touch: a double-tap continues, a still hold saves; a single tap or a swipe does nothing.
 
 **On the device**, before every tag, with `sample/` — a tiny host that takes Guru as
 source, like Verso. Its debug build has an ANR button and keeps the plain application
@@ -198,14 +193,14 @@ id, so install it with
 
 1. `adb shell am crash com.github.reygnn.guru.sample`, start the app: the alert shows
    `#80000001`.
-2. Hold, cancel the chooser, restart: the alert comes back.
-3. Hold, pick an app, restart: no alert.
-4. Hold, "Copy", restart: the alert comes back. (One UI has its own share sheet: if
-   picking an app never removes the reports there, that is the safe side, but it belongs
-   in the caveats.)
-5. Press "ANR" and touch the screen until the system kills the app, restart:
+2. Hold: the toast names `Download/Guru`, the chooser offers one ZIP. Cancel it, restart:
+   no alert; the file is in `Download/Guru/` (Files app), named
+   `Guru_Sample-<version>-<time>.zip` (`Guru-Beispiel-…` in German), the JSON inside.
+3. Crash twice, start, hold: two ZIPs offered together; pick guru2acra (or mail), it
+   receives both.
+4. Press "ANR" and touch the screen until the system kills the app, restart:
    `#80000002`, the thread dump in the report.
-6. TalkBack in German: the hint and both actions are read in German.
+5. TalkBack in German: the hint and both actions are read in German.
 
 ## Verified
 

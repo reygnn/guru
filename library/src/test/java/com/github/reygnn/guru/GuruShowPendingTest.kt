@@ -23,7 +23,7 @@ class GuruShowPendingTest {
     private val b = "0b6c2f8e-1d2a-4c3b-9e8f-00000000000b"
 
     private fun installed() {
-        Guru.install(host.app, GuruSink.Share(), host.io)
+        Guru.install(host.app, host.io)
         host.store.markExitsSeen(System.currentTimeMillis() - GuruHostRule.MINUTE_MS)
     }
 

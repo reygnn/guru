@@ -14,21 +14,21 @@ class SampleGuruTextsTest {
 
     @Test
     fun `English by default`() {
-        assertEquals("double-tap: continue · hold: send · back: later", texts.hint)
+        assertEquals("double-tap: continue · hold: save · back: later", texts.hint)
         assertEquals("+1 more", texts.more(1))
-        assertEquals("Guru: 1 report sent", texts.sent(1, 1))
-        assertEquals("Guru: 3 reports sent", texts.sent(3, 3))
-        assertEquals("Guru: not sent, kept for the next start", texts.sent(0, 2))
-        assertEquals("Guru: 1 of 2 sent, the rest kept", texts.sent(1, 2))
+        assertEquals("Guru: 1 report saved to Download/Guru", texts.saved(1, 1))
+        assertEquals("Guru: 3 reports saved to Download/Guru", texts.saved(3, 3))
+        assertEquals("Guru: not saved, kept for the next start", texts.saved(0, 2))
+        assertEquals("Guru: 1 of 2 saved to Download/Guru, the rest kept", texts.saved(1, 2))
     }
 
     @Test
     @Config(qualifiers = "de")
     fun `German from values-de`() {
-        assertEquals("doppeltippen: weiter · halten: senden · zurück: später", texts.hint)
+        assertEquals("doppeltippen: weiter · halten: speichern · zurück: später", texts.hint)
         assertEquals("weiter, Bericht verwerfen", texts.actionContinue)
-        assertEquals("Bericht senden", texts.actionSend)
+        assertEquals("Bericht in Download/Guru speichern", texts.actionSave)
         assertEquals("+2 weitere", texts.more(2))
-        assertEquals("Guru: 1 von 2 gesendet, der Rest bleibt", texts.sent(1, 2))
+        assertEquals("Guru: 1 von 2 in Download/Guru gespeichert, der Rest bleibt", texts.saved(1, 2))
     }
 }

@@ -21,7 +21,7 @@ import java.time.Duration
 
 /**
  * Real MotionEvents on the alert, the clock advanced by hand. The rule under test: only a
- * double-tap continues and only a still hold sends — a single tap, a swipe or a finger laid on a
+ * double-tap continues and only a still hold saves — a single tap, a swipe or a finger laid on a
  * dimmed screen to wake it does nothing (hard rule 7).
  */
 @RunWith(RobolectricTestRunner::class)
@@ -30,7 +30,7 @@ class GuruTouchTest {
     @get:Rule val host = GuruHostRule()
 
     private var continued = 0
-    private var sent = 0
+    private var saved = 0
     private lateinit var dialog: Dialog
     private lateinit var view: View
     private var downTime = 0L
@@ -46,7 +46,7 @@ class GuruTouchTest {
     fun setUp() {
         val activity = host.activity().get()
         dialog = GuruScreen.show(activity, listOf(GuruText.SOFTWARE_FAILURE), GuruTexts.English,
-            onContinue = { continued++ }, onSend = { sent++ })
+            onContinue = { continued++ }, onSave = { saved++ })
         view = dialog.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
         // Attached and laid out first. A swipe has to stay inside the view, as it does on a device
         // where the alert fills the screen: View's own click handling drops a touch that leaves the
@@ -85,7 +85,7 @@ class GuruTouchTest {
     private fun assertUntouched() {
         after(doubleTapMs + longPressMs)
         assertEquals(0, continued)
-        assertEquals(0, sent)
+        assertEquals(0, saved)
         assertTrue(dialog.isShowing)
     }
 
@@ -103,7 +103,7 @@ class GuruTouchTest {
         tap()
 
         assertEquals(1, continued)
-        assertEquals(0, sent)
+        assertEquals(0, saved)
         assertFalse(dialog.isShowing)
     }
 
@@ -129,7 +129,7 @@ class GuruTouchTest {
     }
 
     @Test
-    fun `a finger that moves past the slop and then rests does not send`() {
+    fun `a finger that moves past the slop and then rests does not save`() {
         down()
         after(TAP_MS)
         move(startX + 2 * slop)
@@ -151,24 +151,24 @@ class GuruTouchTest {
     }
 
     @Test
-    fun `a still hold sends`() {
+    fun `a still hold saves`() {
         down()
         after(longPressMs + TAP_MS)
 
         assertEquals(0, continued)
-        assertEquals(1, sent)
+        assertEquals(1, saved)
         assertFalse(dialog.isShowing)
         up()
     }
 
     @Test
-    fun `a hold that wobbles within the slop still sends`() {
+    fun `a hold that wobbles within the slop still saves`() {
         down()
         after(TAP_MS)
         move(startX + slop / 2)
         after(longPressMs)
 
-        assertEquals(1, sent)
+        assertEquals(1, saved)
         up(startX + slop / 2)
     }
 
@@ -180,10 +180,10 @@ class GuruTouchTest {
     }
 
     @Test
-    fun `TalkBack's long click sends`() {
+    fun `TalkBack's long click saves`() {
         assertTrue(view.performAccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, null))
 
-        assertEquals(1, sent)
+        assertEquals(1, saved)
     }
 
     private companion object {

@@ -19,7 +19,6 @@ package com.github.reygnn.guru
  * Production classes take their Android-bound collaborators as FUNCTIONS:
  *
  *   GuruStore(dir, log, syncDir, rename, now, keep)  // rename: force a failure
- *   AcraPost.post(url, login, password, json, log)   // against a loopback server
  *   GuruHandler(previous, capture)                   // capture may throw
  *
  * The `log` parameter is the error channel of code that never throws: a test
@@ -47,14 +46,15 @@ package com.github.reygnn.guru
 
 /**
  * ============================================================================
- * FILES, NETWORK, LOCALES, ORG.JSON
+ * FILES, MEDIASTORE, LOCALES, ORG.JSON
  * ============================================================================
  *
  * FILES — real files in a JUnit `TemporaryFolder`. Only the directory fsync is
  * stubbed; write, rename and parse together are the thing under test.
  *
- * NETWORK — the JDK's `com.sun.net.httpserver.HttpServer` on loopback, port 0.
- * The request is recorded as it arrived (method, path, headers, body).
+ * MEDIASTORE — Robolectric has no MediaProvider. FakeMediaStore registers a
+ * provider under the `media` authority that keeps rows in memory and their
+ * bytes in real files, and can refuse an insert; the ZIP is read back from it.
  *
  * LOCALE — a class whose tests set the default locale holds a GuruLocaleRule,
  * which restores main, FORMAT and DISPLAY.
@@ -70,8 +70,8 @@ package com.github.reygnn.guru
  * ROBOLECTRIC — SDK 36, JDK 21
  * ============================================================================
  *
- * Only for what needs the Android runtime: `Guru.install` / `showPending`, the
- * chooser's answer, `GuruScreen`. Annotate the class with
+ * Only for what needs the Android runtime: `Guru.install` / `showPending`,
+ * saving through MediaStore and the chooser it offers, `GuruScreen`. Annotate the class with
  * `@RunWith(RobolectricTestRunner::class)`; the SDK is pinned once in
  * `src/test/resources/robolectric.properties`. Drive a plain `Activity` with
  * `Robolectric.buildActivity(...)`; no androidx.test API in the tests.
@@ -82,14 +82,14 @@ package com.github.reygnn.guru
  * Harness traps already paid for:
  *  - Back: idle the main looper first (the dialog's window attaches on a post),
  *    then dispatch KEYCODE_BACK down/up on the dialog.
- *  - The chooser's callback: since Android 15, createChooser files it under
- *    EXTRA_CHOOSER_RESULT_INTENT_SENDER. Answer it as the system does, with a
- *    fill-in carrying EXTRA_CHOOSER_RESULT:
- *    `(sender as RoboIntentSender).pendingIntent.send(app, 0, fillIn)`, then idle
- *    the looper. ChooserResult's constructor is hidden: build it by reflection
- *    (GuruShareTest.answer). Robolectric drops the fill-in of an immutable
- *    PendingIntent, as a device does.
- *  - "No app at all": `shadowOf(app).checkActivities(true)`.
+ *  - MediaStore: `FakeMediaStore.install()` in @Before, before anything saves.
+ *    ContentResolver reaches its insert/update/delete/openFile like the real
+ *    provider's; the ZIP is read back from `row.file`.
+ *  - The save's offer goes through the host's onUi: post it to main
+ *    (`activity.mainExecutor.execute(it)`) and idle the looper, or a throw in it
+ *    lands in the IO task's guard and no test sees it (GuruSaveTest.hold).
+ *  - A start the system refuses: an Activity subclass whose startActivity throws
+ *    (GuruSaveTest.RefusingActivity).
  *  - Touch (GuruTouchTest): idle the main looper first — the dialog's window attaches
  *    and lays the view out (Robolectric: 320 px wide). Keep every move inside the
  *    view: View's own click handling drops a touch that leaves it, so a swipe off the

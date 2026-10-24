@@ -2,7 +2,6 @@ package com.github.reygnn.guru.sample
 
 import android.app.Application
 import com.github.reygnn.guru.Guru
-import com.github.reygnn.guru.GuruSink
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -14,6 +13,6 @@ class SampleApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Guru.install(this, GuruSink.Share(), io = io::execute, texts = SampleGuruTexts(this))
+        Guru.install(this, io = io::execute, texts = SampleGuruTexts(this))
     }
 }

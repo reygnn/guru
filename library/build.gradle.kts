@@ -49,8 +49,8 @@ android {
                 // agent loading is opted into explicitly.
                 it.jvmArgs("-XX:+EnableDynamicAgentLoading")
                 // Conscrypt lowercases os.name with the default locale: on a Turkish host its
-                // native library is not found and every Robolectric test fails. The loopback
-                // server in AcraPostTest is plain HTTP.
+                // native library is not found and every Robolectric test fails. No test
+                // needs TLS.
                 it.systemProperty("robolectric.conscryptMode", "OFF")
             }
         }

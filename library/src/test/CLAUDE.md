@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 129 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 124 tests):
 
 ```
 GuruStoreTest       16  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -23,42 +23,43 @@ GuruNumberTest      12  the number: kind with the dead-end bit, FNV-1a over the 
 ReportCodecTest     10  key=value round-trip (a hostile trace too); an unknown key from a newer
                         Guru skipped; missing field, bad value, bad escape or a cut-off file
                         is no report
-GuruTextTest        12  cap and readCapped at their limit (surrogate pairs whole), the alert
-                        lines, "+N more", the subject; a share takes whole reports while they
-                        fit and names only those, a first one too big goes cut, the limit
-                        leaves room for three copies in one Binder transaction
+GuruTextTest         8  cap and readCapped at their limit (surrogate pairs whole), the alert
+                        lines, "+N more", the share's subject
 AcraJsonTest         7  the ACRA fields Acrarium requires, USER_CRASH_DATE's format, read back
                         with the real org.json
 ExitSelectionTest    7  which exit records become reports: the first look only sets the
                         mark, oldest first, a Java crash the handler caught not twice, an ANR
                         beside it still reported, the mark moved even past a dropped crash
-AcraPostTest         6  a real HTTP server on loopback: method, path, basic auth, body, 2xx
+GuruDownloadsTest    6  the ZIP's name (app, version, local crash time; unsafe characters to
+                        `_`, empty parts left out, ASCII digits in any locale) and its one
+                        entry, the JSON byte for byte
 GuruProcessTest      6  building a report from a crash (trace capped) or an exit record; the
                         kind codes are fixed
+GuruTextsTest        6  GuruTexts.English: the toast after saving, "+N more", both gestures
+                        named; a host's texts that override nothing are English
 GuruHandlerTest      5  one capture per process, a failing capture swallowed, the previous
                         handler always reached with the original throwable
-GuruTextsTest        5  GuruTexts.English: the toast after sending, "+N more", both gestures
-                        named
-GuruInstallTest      9  Robolectric: a second install keeps one handler; the receiver only for
-                        Share, not exported; exit records (ShadowActivityManager) — the look
-                        waits for io, the first start only marks, an ANR with its dump, a
-                        caught Java crash not twice, old exits and other reasons stay out, an
-                        unreadable dump still a report and the mark moved
+GuruSaveTest        11  Robolectric + FakeMediaStore: the save waits for io; one ZIP per report
+                        in Download/Guru (name, MIME, IS_PENDING cleared), the ACRA JSON
+                        inside, removed once saved; no label names by package; a refused
+                        insert or a failed write keeps the report and leaves no file; only
+                        the saved go; the chooser offers one file (SEND) or several
+                        (SEND_MULTIPLE) with read access; one that cannot start, or an
+                        activity gone before it, costs nothing
+GuruInstallTest      8  Robolectric: a second install keeps one handler; no receiver; exit
+                        records (ShadowActivityManager) — the look waits for io, the first
+                        start only marks, an ANR with its dump, a caught Java crash not
+                        twice, old exits and other reasons stay out, an unreadable dump still
+                        a report and the mark moved
 GuruShowPendingTest  7  Robolectric: nothing pending, nothing shown; the alert after the exit
                         look and on the host's main; number and "+N more"; a tap removes after
                         the io step and only what was on screen; Back keeps all; a destroyed
                         activity gets no alert
-GuruShareTest       12  Robolectric: hold starts the chooser (subject, text, mailTo); a picked
-                        app (ChooserResult SELECTED_COMPONENT) removes exactly the reports
-                        handed over, on io; Copy, Edit, unknown, no result and no answer keep
-                        all; the callback is mutable (the fill-in arrives); no app to share
-                        with keeps them and says so, and so does a start the system refuses;
-                        a picked app removes only the reports that fit in the text
-GuruScreenTest       5  Robolectric: continue and send each act once; TalkBack's action labels
+GuruScreenTest       5  Robolectric: continue and save each act once; TalkBack's action labels
                         and description from GuruTexts; the alert closes with its activity
 GuruTouchTest       10  Robolectric, real MotionEvents: a double-tap continues, a still hold
-                        sends; a single tap, two slow taps, a swipe, a slide past the slop and a
-                        sliding second tap do nothing; TalkBack's click and long click act
+                        saves; a single tap, two slow taps, a swipe, a slide past the slop and
+                        a sliding second tap do nothing; TalkBack's click and long click act
 ```
 
 `sample/src/test`: `SampleGuruTextsTest` (2) — the sample's `GuruTexts` from `values` and
@@ -66,9 +67,11 @@ GuruTouchTest       10  Robolectric, real MotionEvents: a double-tap continues, 
 
 Shared: `GuruFixtures.kt` (`testEnv`, `report(...)`, `GuruLocaleRule`) and, for the
 Robolectric tests, `GuruHostRule.kt` (the Application, `io` as a manual FIFO, the store,
-the default handler restored afterwards).
+the default handler restored afterwards) and `FakeMediaStore.kt` (a provider under the
+`media` authority: rows in memory, bytes in real files, a refused insert or write).
 
-Left to the device test (README): the real chooser, a real process death, the blink.
+Left to the device test (README): the real MediaStore and chooser, a real process death,
+the blink.
 
 ---
 
@@ -79,8 +82,8 @@ Left to the device test (README): the real chooser, a real process death, the bl
   test passes a lambda or a fake.
 - **No coroutines**, so no `MainDispatcherRule` / `runTest`. Threading is the host's `io`;
   a test passes a manual queue and decides when it runs.
-- **No mocked filesystem or connection.** Real files in a `TemporaryFolder`, a real
-  `HttpServer` on loopback: the bytes on disk and on the wire are what is tested.
+- **No mocked filesystem.** Real files in a `TemporaryFolder`, the ZIP's real bytes: what
+  lands on disk is what is tested.
 
 ---
 

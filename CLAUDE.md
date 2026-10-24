@@ -27,15 +27,14 @@ Maven, no JitPack, no git submodule.
   `sourceSets { named("main") { kotlin.directories += "../library/src/main/kotlin" } }`
   (the AGP 9 spelling), not as a dependency on `:library`.
 
-The host interface is `Guru.install`, `Guru.showPending`, `GuruSink` and `GuruTexts`.
+The host interface is `Guru.install`, `Guru.showPending` and `GuruTexts`.
 
 ## Hard rules
 
-1. **No dependency, no permission.** `implementation` stays empty. `GuruSink.Share`
-   needs no permission; for `GuruSink.Acra` the host declares INTERNET itself.
-2. **No thread of its own.** Disk and network work run on the host's `io`, in submission
-   order, each task guarded. The only exception is the dying thread writing its own
-   report.
+1. **No dependency, no permission.** `implementation` stays empty. Saving goes through
+   `MediaStore.Downloads`, which needs none; Guru has no network code.
+2. **No thread of its own.** Disk work runs on the host's `io`, in submission order, each
+   task guarded. The only exception is the dying thread writing its own report.
 3. **Guru never decides how the process dies.** One capture per process, no binder call
    while dying, then the exception goes unchanged to the previous handler. A failed write
    is swallowed.
@@ -46,15 +45,15 @@ The host interface is `Guru.install`, `Guru.showPending`, `GuruSink` and `GuruTe
    field is a break (major version).
 6. **Write first, then move `exits-seen`.** A death in between repeats an exit, it never
    loses one.
-7. **Delete only what is gone:** on "continue", on an app picked in the share chooser
-   (`ChooserResult` `SELECTED_COMPONENT` — Copy, Edit, unknown or no result keep the
-   reports), on a 2xx from the ACRA server.
+7. **Delete only what is gone:** on "continue", and once a report's ZIP is saved in
+   `Download/Guru` (`IS_PENDING` cleared) — from then on the file is the user's. The
+   chooser that follows only offers the files; nothing there decides about a report.
 8. **No manifest, no resources, everything `internal`.** Texts come from the host via
    `GuruTexts`; only the Amiga lines stay fixed English.
 9. **No code for a particular host.** What only Verso needs belongs in Verso (like
    `VersoGuruTexts`).
-10. **The ACRA fields are a contract** with the family's own ACRA backend
-    ([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend)): `PACKAGE_NAME` and `STACK_TRACE` are required; it groups
+10. **The ACRA fields are a contract** — the JSON in each ZIP — with the family's own
+    ACRA backend ([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend)): `PACKAGE_NAME` and `STACK_TRACE` are required; it groups
     every Guru report by `PACKAGE_NAME` + the exception class of the trace's first line +
     `CUSTOM_DATA.GURU_MEDITATION`, and counts a `REPORT_ID` once. So the trace's first
     line, the number's format (`#XXXXXXXX.XXXXXXXX`, upper-case hex), that field's name

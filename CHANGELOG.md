@@ -5,6 +5,24 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 
 ## Unreleased
 
+**2.0.0 — breaking.** Guru saves instead of sending.
+
+- A hold saves each report as a ZIP of its own in `Download/Guru/` (MediaStore, no
+  permission), named after app, version and crash time
+  (`Verso-0.3.1-2026-10-24_14-03-12.zip`), one entry inside: the ACRA JSON, unchanged.
+  Guru's copy goes as soon as the file is saved; one that cannot be saved stays.
+- Then the chooser offers the saved files (`EXTRA_STREAM`, read access granted). Only URIs
+  travel, so the Binder limit is gone, and nothing in the chooser decides about a report:
+  `ChooserResult`, the mutable `PendingIntent` and the receiver are gone with it.
+- **Removed:** `GuruSink` (`Share` and `Acra`) and `AcraPost` — Guru has no network code.
+  `Guru.install(app, io, texts)` loses its `sink` parameter.
+- **`GuruTexts`:** `actionSend` → `actionSave`, `sent(sent, total)` → `saved(saved, total)`;
+  the hint reads "double-tap: continue · hold: save · back: later". Every member now has a
+  default (the English one). **Hosts must rename their overrides.**
+- 124 tests.
+
+Earlier on `main`, before 2.0.0 (never tagged as 1.0.2):
+
 - Fix: a share cut at its limit removed every report once an app was picked, the ones cut
   off too. A share now carries whole reports only and removes exactly those; the rest stay
   for the next share. A first report too big alone still goes, cut.
@@ -15,7 +33,7 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 - Fix: an ANR dump that threw while being read stopped the exit look before the mark moved,
   so the same exits came back as new reports on every start. Such an ANR is now reported
   without its dump.
-- 6 tests (129 in all).
+- 6 tests.
 
 - Docs: the backend contract as deployed on 2026-10-23 — every Guru report grouped by
   package, class and Guru number; a `REPORT_ID` counted once; reporter and admin users
