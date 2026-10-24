@@ -3,9 +3,16 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
-## Unreleased
+## 2.0.0 — 2026-10-24
 
-**2.0.0 — breaking.** Save first, then tell.
+**Breaking.** Save first, then tell.
+
+Checked on the A17 (Samsung SM-A176B, One UI, Android 16): a crash saved to
+`Download/Guru/` and announced; hold opens One UI's share sheet with the file named (the
+chooser's read access), mail apps offered for `.json`; cancel and double-tap close, no alert
+after a restart; the alert back after a dark-mode recreate; "Crash twice" gives "2 Berichte",
+both files shared together; an ANR saved with its thread dump (#80000002); no crash saved
+twice across starts; TalkBack reads the alert in German; `connectedAndroidTest` 4/4.
 
 - At every start, before anything is shown, each pending report is saved as a `.json` file
   of its own in `Download/Guru/` (MediaStore, no permission), named after app, version and
