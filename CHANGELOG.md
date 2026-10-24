@@ -9,7 +9,8 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 build): before, a black full-screen dialog with the box at the top and nothing of the app; now a
 black strip at the top — box, blinking border, hint — and the app slid down under it, seen
 below; after a double-tap, a hold (chooser cancelled) and in landscape the app is back pixel for
-pixel where it was; with "Remove animations" no slide and no blink.
+pixel where it was; with "Remove animations" no slide and no blink; TalkBack reads the alert as
+before.
 
 - The alert is a black strip at the top, as high as box and hint need (below the top inset,
   at most the window); below it the dialog's window is see-through and undimmed, the app slid
