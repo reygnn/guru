@@ -20,8 +20,11 @@ A single tap or a swipe does nothing: a finger laid on a dimmed screen to wake i
 close the alert unread. Moving past the touch slop cancels a double-tap and a hold alike.
 
 **Save first, then tell.** Nothing waits on the user, so nothing is lost when no one
-answers: an app that dies before its alert still has its reports in `Download/Guru/`, and
-an alert that dies itself leaves nothing open that would bring it back.
+answers: an app that dies before its alert still has its reports in `Download/Guru/`. An
+alert that cannot be built (the host's texts throw) is logged and left out; one that
+crashes later, in layout or drawing, is left out at the next start — its crash, on the main
+thread inside Guru's own package, is saved like any other, but gets no alert. No start
+loops on Guru's own alert.
 
 Platform APIs and the Kotlin stdlib only, minSdk 36 like the rest of the family.
 
@@ -65,25 +68,36 @@ records), Guru saves each pending report as a file of its own through
 `MediaStore.Downloads`, in `Download/Guru/`: no permission, no manifest entry. The file is
 the report's ACRA JSON, unchanged, named after the app, its version and the crash time in
 local time — `Verso-0.3.1-2026-10-24_14-03-12.json`. A character a file name should not
-carry becomes `_`; the name is cut to 40 chars and the version to 24, so it stays under
-255 bytes. MediaStore adds ` (1)` to a name already taken.
+carry becomes `_`; the app's name is cut to 40 chars and the version to 24, so the name stays
+under 255 bytes. MediaStore adds ` (1)` to a name already taken. The version is the crashed
+app's, as `install` read it then.
 
 Each file shows only once complete and synced (`IS_PENDING`, `fsync`). Once it is saved,
 the file is the user's and Guru removes its own copy, report by report. A report whose file
-cannot be saved stays for the next start. A death between saving and removing repeats that
-one report as a second file with the same `REPORT_ID`, which the backend counts once.
+cannot be saved stays for the next start; if none can be saved (storage full), no alert
+comes, and the reports wait (8 at most). A death between saving and removing — or a copy
+Guru cannot remove — repeats that report as a second file with the same `REPORT_ID`, which
+the backend counts once. A power cut right after a save is the one gap left: the file's
+bytes are synced, but whether MediaStore's own record of it survives is MediaStore's.
+
+The times of the crashes saved are kept (the newest 8), so that an exit record of one of
+them, if the system lists it only at a later start, is no second crash.
 
 Of its own files in `Download/Guru/`, Guru keeps the newest 32 and removes the rest after
 saving, so a crash loop cannot fill the folder. Only files this app made are ever listed or
 removed: files the user put there, another app's, or an earlier install's are not touched.
+A file of Guru's that the user renames inside the folder still counts; moved out, it is the
+user's alone.
 
 **The alert** then names the newest report's number and how many were saved — only what this
-start saved, and only once: a second `showPending`, or a recreated activity, shows nothing.
+start saved, and once it has been seen, never again: a second `showPending` shows nothing.
+An alert the activity loses before anyone answered it (destroyed before it came, or
+recreated while it was up — dark mode, wallpaper colours, language) comes back with the next
+`showPending`, the recreated activity's.
 A hold offers the saved files in the share chooser — `ACTION_SEND`, or `ACTION_SEND_MULTIPLE`
 for several, read access for the chooser (its preview) and the app picked, in a task of its
 own. Only the files' URIs travel, so there is no size limit, and nothing in the chooser
-decides about a report. If the activity is gone before the alert comes, there is no alert;
-the files are saved all the same.
+decides about a report.
 
 **Privacy.** Every report goes into shared storage at the next start, without asking: the
 full trace (exception messages can carry names, paths, other apps' package names), an ANR's
@@ -94,7 +108,13 @@ all files or a sync tool can read them, and every host with Guru shares the one
 `Download/Guru/`. To be rid of a report, delete its file.
 
 To get the reports into the backend, share the files to guru2acra, or run the backend's
-`tools/import_share.py` on them.
+`tools/import_share.py` on them: `cat Download/Guru/*.json | python3 tools/import_share.py`.
+
+**For receivers** (guru2acra, or any app the user picks): Guru shares `ACTION_SEND` (one
+file) or `ACTION_SEND_MULTIPLE` (several), type `application/json`. The files are content
+URIs in `EXTRA_STREAM` and in the ClipData, with read access; there is no `EXTRA_TEXT`, and
+`EXTRA_SUBJECT` names the newest report. Each file is exactly one ACRA JSON object, UTF-8,
+nothing before or after it. The same files shared from a Files app arrive the same way.
 
 ## The backend contract
 
@@ -188,24 +208,28 @@ Guru.install(this, io = io::execute, texts = AppGuruTexts(this))
 Guru.showPending(this, ::onUi)
 ```
 
-`io` must run tasks in submission order (the exit look comes before the screen). The
-dialog dismisses itself when its activity is destroyed.
+`io` must run tasks in submission order: the exit look, then the save, then the alert. The
+save runs at every start before the host's own first load, if the host queues that after
+`install`: a MediaStore insert and an fsync per report, none when nothing is pending.
+Install in the main process only — every process that installs saves. The dialog dismisses
+itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 141 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 159 tests, JUnit 4, no mocks, each mutation-checked.
 
-- **81 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
+- **85 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
   `org.json` for parsing the JSON back (the library Acrarium reads it with).
-- **60 Robolectric tests** for what the JVM alone cannot reach:
+- **74 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, no receiver.
   - Exit records via `ShadowActivityManager`, an unreadable ANR dump too.
   - Saving at the start through a fake MediaStore provider: one file per report in
     `Download/Guru`, hidden until complete, removed from Guru's store once saved; a refused,
     failed or throwing save keeps that report; the newest 32 of Guru's own files stay, no
-    one else's are touched.
-  - The alert: once, only what this start saved, the newest number; closing decides
-    nothing; a destroyed activity gets none, the files are saved anyway.
+    one else's are touched; a crash saved still meets its late exit record.
+  - The alert: only what this start saved, the newest number, once seen; closing decides
+    nothing; lost before an answer it comes back; host texts that throw cost the alert,
+    not the host; Guru's own crash on main leaves the next alert out.
   - Sharing: the chooser offers the files with read access in a task of its own; one that
     cannot start costs nothing.
   - `GuruScreen`: share acts once, TalkBack labels, closing with the activity.
@@ -217,29 +241,31 @@ MediaStore really does: the file under its name and readable back, ` (1)` for a 
 the shell made. Run it with `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`.
 
 **On the device**, before every tag, with `sample/` — a tiny host that takes Guru as
-source, like Verso. Its debug build has an ANR button and keeps the plain application
-id, so install it with
+source, like Verso. Its debug build has the buttons "ANR" and "Crash twice" and keeps the
+plain application id, so install it with
 `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :sample:installDebug`:
 
-1. `adb shell am crash com.github.reygnn.guru.sample`, start the app: the alert shows
-   `#80000001` and "saved to Download/Guru". The Files app shows
-   `Download/Guru/Guru_Sample-<version>-<time>.json` (`Guru-Beispiel-…` in German).
-2. Hold: the chooser offers the file and shows its name (the chooser's own read access).
-   Cancel it. Double-tap: the alert closes. Restart: no alert; the file is still there.
-3. Crash twice, start: "2 reports saved"; hold: both files offered together; pick
-   guru2acra (or mail), it receives both.
-4. Crash, then crash again right at the start before the alert shows (or press Back at
-   once and `am crash` again): the files are in `Download/Guru/` all the same.
-5. Press "ANR" and touch the screen until the system kills the app, restart:
+1. Start the app, tap "Crash", start it again: the alert shows `#80000001` and "saved to
+   Download/Guru". The Files app shows `Download/Guru/Guru_Sample-<version>-<time>.json`
+   (`Guru-Beispiel-…` in German).
+2. Hold: the alert closes, the chooser offers the file and shows its name (the chooser's
+   own read access). Cancel it. Restart: no alert; the file is still there.
+3. Crash, start; double-tap: the alert closes. Restart: no alert.
+4. Crash, start; while the alert is up, switch dark mode (or rotate): the recreated screen
+   shows the alert again.
+5. "Crash twice", start (it crashes again before Guru saves), start again: "2 reports saved
+   to Download/Guru"; hold: both files offered together; pick mail (or guru2acra, once it
+   takes `.json`), it receives both.
+6. Press "ANR" and touch the screen until the system kills the app, restart:
    `#80000002`, the thread dump in the file.
-6. TalkBack in German: the hint and both actions are read in German.
-7. `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`: green.
+7. TalkBack in German: the hint, both actions and the "saved" line are read in German.
+8. `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`: green.
 
 ## Verified
 
 `./gradlew check` in this repo: the unit tests, lint (warnings as errors, no baseline)
 and detekt (Verso's rules, no baseline), with Kotlin warnings as errors for main and test
-sources, for `library/` and `sample/`. CI runs it on every push and pull request
+sources, for `library/` and `sample/`; it compiles the on-device tests too. CI runs it on every push and pull request
 (`.github/workflows/check.yml`). The build mirrors Verso's versions and rules, so what passes here compiles in a
 host that pulls it.
 

@@ -30,7 +30,8 @@ import kotlin.math.hypot
  */
 internal object GuruScreen {
 
-    fun show(activity: Activity, lines: List<String>, texts: GuruTexts, onShare: () -> Unit): Dialog {
+    /** [onUnanswered]: the activity was destroyed while the alert was up and no one had answered it. */
+    fun show(activity: Activity, lines: List<String>, texts: GuruTexts, onShare: () -> Unit, onUnanswered: () -> Unit = {}): Dialog {
         val dialog = Dialog(activity, android.R.style.Theme_Material_NoActionBar_Fullscreen)
         var decided = false
         val view = GuruView(activity, lines, texts.hint, texts.actionClose, texts.actionShare)
@@ -50,13 +51,17 @@ internal object GuruScreen {
         }
         dialog.setContentView(view)
         dialog.show()
-        activity.registerActivityLifecycleCallbacks(DismissOnDestroy(dialog))
+        // Still up when the activity goes = not answered: every answer (and Back) closes it at once.
+        activity.registerActivityLifecycleCallbacks(DismissOnDestroy(dialog, onUnanswered))
         return dialog
     }
 
-    private class DismissOnDestroy(private val dialog: Dialog) : Application.ActivityLifecycleCallbacks {
+    private class DismissOnDestroy(private val dialog: Dialog, private val unanswered: () -> Unit) : Application.ActivityLifecycleCallbacks {
         override fun onActivityDestroyed(activity: Activity) {
-            if (dialog.isShowing) dialog.dismiss()
+            if (dialog.isShowing) {
+                dialog.dismiss()
+                unanswered()
+            }
             activity.unregisterActivityLifecycleCallbacks(this)
         }
 

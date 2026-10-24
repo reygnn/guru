@@ -89,6 +89,10 @@ class FakeMediaStore : ContentProvider() {
     ): Cursor {
         if (throwOnQuery) throw IllegalStateException("query thrown")
         val (path, owner) = selectionArgs.orEmpty().let { it.getOrNull(0) to it.getOrNull(1) }
+        // Only the selection Guru means; a wrong one would pass here and fail on a device.
+        val expected = "${MediaStore.MediaColumns.RELATIVE_PATH}=?" +
+            if (owner != null) " AND ${MediaStore.MediaColumns.OWNER_PACKAGE_NAME}=?" else ""
+        require(selection == expected) { "unexpected selection: $selection" }
         val cursor = MatrixCursor(arrayOf(MediaStore.MediaColumns._ID))
         rows.filter { row ->
             row.values.getAsInteger(MediaStore.MediaColumns.IS_PENDING) == 0 &&

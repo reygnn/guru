@@ -12,20 +12,35 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
   crash time (`Verso-0.3.1-2026-10-24_14-03-12.json`): the ACRA JSON, unchanged. The file is
   synced and shown only once complete; Guru's copy goes once it is saved, one that cannot be
   saved stays. Of its own files there Guru keeps the newest 32; no one else's are touched.
-- The alert only tells: the newest number and how many were saved, once. Hold shares the
-  saved files (`EXTRA_STREAM` and ClipData, read access for the chooser and the app picked,
-  `FLAG_ACTIVITY_NEW_TASK`); double-tap or Back closes. Nothing waits on the user: an app that
-  dies before its alert keeps its reports in `Download/Guru/`, and an alert that dies itself
-  leaves nothing open to loop on (audit 2026-10-23 #4, #21). There is no "discard" any more —
-  delete the file.
+  Reports a 1.x left in its store are saved at the first start — the store's format is
+  unchanged.
+- The alert only tells: the newest number and how many were saved. Hold shares the saved
+  files (`EXTRA_STREAM` and ClipData, read access for the chooser and the app picked,
+  `FLAG_ACTIVITY_NEW_TASK`); double-tap or Back closes. Once seen it never comes again; lost
+  before anyone answered (the activity destroyed or recreated), it comes back with the next
+  `showPending`. There is no "discard" any more — delete the file.
+- Nothing waits on the user: an app that dies before its alert keeps its reports in
+  `Download/Guru/` (audit 2026-10-23 #21). An alert whose host texts throw is logged and left
+  out; a crash on the main thread inside Guru's own package leaves the next alert out, so the
+  alert cannot crash every start (#4).
+- The times of crashes saved are kept, so an exit record the system lists only at a later
+  start is no second crash.
+- Also: an ANR dump that threw while being read stopped the exit look before the mark moved,
+  so the same exits came back as new reports on every start; such an ANR is now reported
+  without its dump.
 - **Removed:** `GuruSink` (`Share` and `Acra`), `AcraPost` and the receiver with its
   `PendingIntent` and `ChooserResult` — Guru has no network code. `Guru.install(app, io,
   texts)` loses its `sink` parameter.
 - **`GuruTexts`:** now `hint`, `actionClose`, `actionShare` and `saved(count)`; `actionContinue`,
   `actionSend`, `more` and `sent` are gone. Every member has its English text as the default in
   the interface; `GuruTexts.English` overrides nothing.
-- Reports sit in shared storage from the next start on — README, "Privacy".
-- 141 tests; on-device MediaStore tests (`:library:connectedAndroidTest`, 4).
+- Reports sit in shared storage from the next start on — README, "Privacy". Receivers get
+  `application/json` files — README, "For receivers".
+- 159 tests; on-device MediaStore tests (`:library:connectedAndroidTest`, 4), compiled by
+  `check`. The sample's debug build has "Crash twice" for a start with two reports.
+- Docs: the backend contract as deployed on 2026-10-23 — every Guru report grouped by
+  package, class and Guru number; a `REPORT_ID` counted once; reporter and admin users
+  separate.
 
 **Host migration** (what a host changes when it pulls 2.0.0):
 
@@ -33,33 +48,20 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
    texts = …)`; drop the `GuruSink` import.
 2. Rewrite the host's `GuruTexts`: `hint` ("double-tap: close · hold: share"), `actionClose`,
    `actionShare`, `saved(count)` ("saved to Download/Guru"); drop `actionContinue`/`actionSend`,
-   `more` and `sent` with their strings. The hint compiles unchanged and would still say
-   "continue · send · later".
+   `more` and `sent` **and delete their strings** (lint's `UnusedResources` fails on them).
+   The hint compiles unchanged and would still say "continue · send · later".
 3. Don't fix the compile errors by deleting the overrides: every member has an English
    default now, so a deleted one silently turns English.
-4. Tests that pin the install line (Verso's `SourceGuardTest`) need the new one.
+4. Tests: the host's test of its `GuruTexts` (Verso's `VersoGuruTextsTest`) and tests that pin
+   the install line (Verso's `SourceGuardTest`).
 5. INTERNET: drop it if it was only there for `GuruSink.Acra`.
-6. Say in the host's caveats that reports land in `Download/Guru` without asking (README,
-   "Privacy").
-
-Earlier on `main`, before 2.0.0 (never tagged as 1.0.2). The two share fixes are
-superseded by 2.0.0, which removes the text share; the ANR-dump fix stays:
-
-- Fix: a share cut at its limit removed every report once an app was picked, the ones cut
-  off too. A share now carries whole reports only and removes exactly those; the rest stay
-  for the next share. A first report too big alone still goes, cut.
-- Fix: a share too large for the Binder (the text travels about three times in the chooser's
-  start) threw out of `startActivity` and killed the host — for a launcher, on every hold.
-  The limit is now 100 K chars instead of 200 K, and a start the system refuses keeps the
-  reports and shows the "no app" toast.
-- Fix: an ANR dump that threw while being read stopped the exit look before the mark moved,
-  so the same exits came back as new reports on every start. Such an ANR is now reported
-  without its dump.
-- 6 tests.
-
-- Docs: the backend contract as deployed on 2026-10-23 — every Guru report grouped by
-  package, class and Guru number; a `REPORT_ID` counted once; reporter and admin users
-  separate; shared reports importable with the backend's `tools/import_share.py`.
+6. Rewrite whatever in the host describes the alert — discard, "later", nothing leaving the
+   app (Verso: `README.md`, the freeze exception and persistence in `CLAUDE.md`, comments in
+   `VersoApp`/`SourceGuardTest`/`VersoGuruTexts`): reports land in `Download/Guru` without
+   asking (README, "Privacy").
+7. The host's `io` now does a MediaStore insert and an fsync per pending report at every
+   start, before the host's own first load if that is queued after `install`.
+8. Install in the main process only.
 
 ## 1.0.1 — 2026-10-23
 

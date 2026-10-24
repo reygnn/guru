@@ -179,4 +179,21 @@ class GuruStoreTest {
         assertEquals("inst-3", store(rename = { _, _ -> false }).installationId { "inst-3" })
         assertFalse(File(dir, GuruStore.INSTALLATION).exists())
     }
+
+    @Test
+    fun `the saved crash times keep the newest, distinct`() {
+        val s = store(keep = 3)
+        listOf(5L, 1L, 4L, 4L, 2L).forEach { s.markCrashSaved(it) }
+
+        assertEquals(listOf(5L, 4L, 2L), store(keep = 3).crashesSaved())
+    }
+
+    @Test
+    fun `no saved crash times, or unreadable ones, count as none`() {
+        assertTrue(store().crashesSaved().isEmpty())
+        dir.mkdirs()
+        File(dir, GuruStore.CRASHES_SAVED).writeText("x\n\n42")
+
+        assertEquals(listOf(42L), store().crashesSaved())
+    }
 }

@@ -20,6 +20,7 @@ package com.github.reygnn.guru
  *
  *   GuruStore(dir, log, syncDir, rename, now, keep)  // rename: force a failure
  *   GuruHandler(previous, capture)                   // capture may throw
+ *   GuruDownloads(resolver, log, owner, subDir, keep) // the device test's own folder
  *
  * The `log` parameter is the error channel of code that never throws: a test
  * collects the messages and asserts on them. Reports come from `report(...)`
@@ -55,8 +56,10 @@ package com.github.reygnn.guru
  * MEDIASTORE — Robolectric has no MediaProvider. FakeMediaStore registers a
  * provider under the `media` authority that keeps rows in memory and their
  * bytes in real files, and can refuse or throw on an insert, a write, the
- * publish (update), a query or a delete, and seed published rows of any
- * owner and folder (`published`) for the pruning tests.
+ * publish (update), a query or a delete, fail one file's write
+ * (`failWriteOn`), and seed published rows of any owner and folder
+ * (`published`) for the pruning tests. It rejects any query selection but
+ * Guru's, so a wrong one fails here, not only on a device.
  *
  * LOCALE — a class whose tests set the default locale holds a GuruLocaleRule,
  * which restores main, FORMAT and DISPLAY.

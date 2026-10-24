@@ -68,6 +68,10 @@ android {
     }
 }
 
+// check compiles the on-device tests too: an update that breaks them fails here and in CI, not
+// at the device test before a tag. Running them needs a device (connectedAndroidTest).
+tasks.named("check") { dependsOn("compileDebugAndroidTestKotlin") }
+
 // No implementation dependency — hard rule 1. Test classpath only.
 dependencies {
     testImplementation(libs.junit)

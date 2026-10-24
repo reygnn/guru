@@ -53,7 +53,7 @@ class GuruDownloadsTest {
         val name = GuruDownloads.baseName(cjk, report(crashedAt = at, env = testEnv.copy(versionName = "版".repeat(200))), utc)
 
         assertEquals("崩".repeat(GuruDownloads.MAX_LABEL) + "-" + "版".repeat(GuruDownloads.MAX_VERSION) + "-2026-10-24_14-03-12", name)
-        assertTrue("$name (99).zip".toByteArray(Charsets.UTF_8).size <= 255)
+        assertTrue("$name (99).json".toByteArray(Charsets.UTF_8).size <= 255)
     }
 
     @Test

@@ -25,6 +25,16 @@ internal object GuruText {
         texts.saved(saved),
     )
 
+    /**
+     * A crash on the main thread with a frame of Guru's own package in its trace: the alert (or
+     * something else of Guru's on main) died. A class right in the package — `guru.GuruView`,
+     * not `guru.sample.MainActivity`.
+     */
+    fun diedInGuru(report: GuruReport): Boolean =
+        report.kind == GuruKind.CRASH && report.thread == "main" && GURU_FRAME.containsMatchIn(report.trace)
+
+    private val GURU_FRAME = Regex("""^\s*at com\.github\.reygnn\.guru\.[A-Z]""", RegexOption.MULTILINE)
+
     fun subject(report: GuruReport): String =
         "Guru Meditation ${report.number} · ${report.env.packageName} ${report.env.versionName}"
 

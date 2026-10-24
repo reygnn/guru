@@ -80,29 +80,52 @@ internal object Guru {
     }
 
     /**
-     * Shows the alert for what this start saved, if anything — once: a second call, or a
-     * recreated activity, shows nothing. Queued on the IO thread behind [install]'s steps.
-     * [onUi] brings the result to the main thread the host's way (Verso's skips a destroyed
-     * activity).
+     * Shows the alert for what this start saved, if anything — once it has been seen: a second
+     * call shows nothing, but an alert the activity lost before it was answered (destroyed before
+     * it came, or recreated while it was up) comes back with the next call. Queued on the IO
+     * thread behind [install]'s steps. [onUi] brings the result to the main thread the host's
+     * way (Verso's skips a destroyed activity).
+     *
+     * Left out when the newest report is a crash on the main thread inside Guru itself — the
+     * alert's own crash: showing it again would crash again, at every start. The files are saved.
      */
     fun showPending(activity: Activity, onUi: (() -> Unit) -> Unit) {
         val s = setup ?: return
         s.io(guarded("loading saved reports") {
             val saved = s.saved
             s.saved = emptyList()
-            if (saved.isNotEmpty()) onUi { present(activity, s, saved) }
+            when {
+                saved.isEmpty() -> Unit
+                GuruText.diedInGuru(saved.first().report) -> log("alert left out: the last crash was Guru's own", null)
+                else -> onUi { present(activity, s, saved) }
+            }
         })
     }
 
+    // Nothing the host's texts or the view throw here reaches the host's main: logged, and the
+    // alert is left out — the files are saved. What throws later, in layout or drawing, crashes
+    // like anything on main, and the next start leaves the alert out (diedInGuru).
+    @Suppress("TooGenericExceptionCaught")
     private fun present(activity: Activity, s: Setup, saved: List<Saved>) {
-        if (activity.isFinishing || activity.isDestroyed) return
-        GuruScreen.show(
-            activity,
-            GuruText.screenLines(saved.first().report.number, saved.size, s.texts),
-            s.texts,
-            onShare = { offer(activity, saved) },
-        )
+        if (activity.isFinishing || activity.isDestroyed) {
+            keep(s, saved)
+            return
+        }
+        try {
+            GuruScreen.show(
+                activity,
+                GuruText.screenLines(saved.first().report.number, saved.size, s.texts),
+                s.texts,
+                onShare = { offer(activity, saved) },
+                onUnanswered = { keep(s, saved) },
+            )
+        } catch (e: RuntimeException) {
+            log("alert not shown", e)
+        }
     }
+
+    /** An alert not seen to its end waits for the next [showPending]; in memory only, it cannot loop. */
+    private fun keep(s: Setup, saved: List<Saved>) = s.io(guarded("keeping the alert") { s.saved = saved + s.saved })
 
     // Each report saved is the user's file from then on, and Guru's copy goes at once, before the
     // next is saved: a death in between repeats at most the one just saved (a second file, the
@@ -115,6 +138,9 @@ internal object Guru {
         val saved = reports.mapNotNull { report ->
             val base = GuruDownloads.baseName(s.label, report, zone)
             s.downloads.save(base, AcraJson.serialize(report, installation, zone))?.let { file ->
+                // Its time first: an exit record of this crash that shows up only at a later
+                // start must still find the crash the handler caught (ExitSelection).
+                if (report.kind == GuruKind.CRASH) s.store.markCrashSaved(report.crashedAt)
                 s.store.remove(listOf(report.id))
                 Saved(report, file)
             }
@@ -161,7 +187,7 @@ internal object Guru {
             }
         }
         val seen = s.store.exitsSeen()
-        val handlerTimes = s.store.pending().filter { it.kind == GuruKind.CRASH }.map { it.crashedAt }
+        val handlerTimes = s.store.pending().filter { it.kind == GuruKind.CRASH }.map { it.crashedAt } + s.store.crashesSaved()
         val outcome = ExitSelection.select(records, seen, System.currentTimeMillis(), handlerTimes)
         outcome.report.forEach { s.store.write(s.process.exit(newId(), it)) }
         if (outcome.seen != seen) s.store.markExitsSeen(outcome.seen)
@@ -184,9 +210,14 @@ internal object Guru {
         else -> null
     }
 
-    // Read once at install, like the environment; no label, the package name.
-    private fun label(app: Application): String =
+    // Read once at install, like the environment; no label, or none to be had, the package name.
+    @Suppress("TooGenericExceptionCaught")
+    private fun label(app: Application): String = try {
         app.applicationInfo.loadLabel(app.packageManager).toString().ifBlank { app.packageName }
+    } catch (e: Exception) {
+        log("label unknown", e)
+        app.packageName
+    }
 
     // Read once at install, so the handler never asks the PackageManager while dying.
     // an unknown version still makes a report

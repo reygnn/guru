@@ -47,10 +47,9 @@ class GuruDownloadsInstrumentedTest {
     }
 
     @After fun tearDown() {
-        // Through the shell, so it also takes the rows we don't own and any pending ones.
-        shell("rm -rf $dirPath")
-        // rm does not tell MediaStore: its row for the folder would stay. No spaces in the
-        // argument — executeShellCommand splits on them and runs no shell to honour quotes.
+        // Through the shell, so it also takes the files we don't own and any pending ones; MediaStore
+        // drops their rows. The folder's own row may stay: best effort, its output is not checked.
+        // No spaces in the argument — executeShellCommand splits on them and runs no shell.
         val dir = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path}/$subDir"
         shell("content delete --uri content://media/external/file --where _data='$dir'")
     }

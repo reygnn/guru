@@ -242,6 +242,7 @@ class GuruSaveTest {
 
     @Test
     fun `only the newest 32 of Guru's own files stay`() {
+        assertEquals(32, GuruDownloads.KEEP)
         val old = (1..GuruDownloads.KEEP).map { media.published("Download/Guru/") }
         host.crashed(a)
 
@@ -263,7 +264,7 @@ class GuruSaveTest {
     }
 
     @Test
-    fun `nothing saved prunes nothing`() {
+    fun `nothing pending prunes nothing`() {
         repeat(GuruDownloads.KEEP + 1) { media.published("Download/Guru/") }
 
         start()
@@ -295,5 +296,87 @@ class GuruSaveTest {
         assertEquals(listOf(newer.id, older.id), ours().takeLast(2).map { it.json().getString("REPORT_ID") })
         assertTrue(host.store.pending().isEmpty())
         assertEquals(2, alertCount())
+    }
+
+    @Test
+    fun `pending reports prune even when none could be saved`() {
+        repeat(GuruDownloads.KEEP + 1) { media.published("Download/Guru/") }
+        host.crashed(a)
+        media.refuse = setOf(GuruDownloads.KEEP + 2)
+
+        start()
+
+        assertEquals(GuruDownloads.KEEP, ours().size)
+        assertEquals(listOf(a), host.store.pending().map { it.id })
+    }
+
+    @Test
+    fun `every file carries the installation's one id`() {
+        twoReports()
+
+        start()
+
+        val id = host.store.installationId { error("made already") }
+        assertEquals(listOf(id, id), media.rows.map { it.json().getString("INSTALLATION_ID") })
+    }
+
+    @Test
+    fun `a trace beyond ASCII comes back exact`() {
+        val text = "java.lang.IllegalStateException: Grüße ✓ 版 😀"
+        host.store.write(report(id = a, trace = "$text\n\tat com.example.app.Main.run(Main.kt:12)"))
+
+        start()
+
+        assertTrue(media.rows.single().json().getString("STACK_TRACE").startsWith(text))
+    }
+
+    @Test
+    fun `the crashed app's version, as install read it, is in the file's name`() {
+        shadowOf(host.app.packageManager).getInternalMutablePackageInfo(host.app.packageName).versionName = "2.5.0"
+        Thread.setDefaultUncaughtExceptionHandler { _, _ -> }
+        Guru.install(host.app, host.io)
+        Thread.getDefaultUncaughtExceptionHandler()!!.uncaughtException(Thread.currentThread(), IllegalStateException("boom"))
+
+        start()
+
+        val got = media.rows.single().values.getAsString(name)
+        assertTrue(got, got.contains("-2.5.0-"))
+    }
+
+    @Test
+    fun `a saved crash still meets its exit record at a later start`() {
+        val caught = host.crashed(a, at = System.currentTimeMillis() - 30_000)
+        start()
+        val am = host.app.getSystemService(ActivityManager::class.java)
+        shadowOf(am).addApplicationExitInfo(
+            ApplicationExitInfoBuilder.newBuilder()
+                .setReason(ApplicationExitInfo.REASON_CRASH)
+                .setTimestamp(caught.crashedAt + 500)
+                .setProcessName(host.app.packageName)
+                .build(),
+        )
+
+        start()
+
+        assertEquals(listOf(a), media.rows.map { it.json().getString("REPORT_ID") })
+        assertTrue(host.store.pending().isEmpty())
+    }
+
+    @Test
+    fun `a saved ANR's time does not hide a crash exit beside it`() {
+        val anr = report(id = a, kind = GuruKind.ANR, crashedAt = System.currentTimeMillis() - 30_000).also { host.store.write(it) }
+        start()
+        val am = host.app.getSystemService(ActivityManager::class.java)
+        shadowOf(am).addApplicationExitInfo(
+            ApplicationExitInfoBuilder.newBuilder()
+                .setReason(ApplicationExitInfo.REASON_CRASH)
+                .setTimestamp(anr.crashedAt + 500)
+                .setProcessName(host.app.packageName)
+                .build(),
+        )
+
+        start()
+
+        assertEquals(listOf("ANR", "CRASH"), media.rows.map { it.json().getJSONObject("CUSTOM_DATA").getString("GURU_KIND") })
     }
 }

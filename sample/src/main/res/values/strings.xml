@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Guru Sample</string>
-    <string name="sample_intro">Crash this app, then start it again: Guru shows what it caught.</string>
+    <string name="sample_intro">Crash this app, then start it again: Guru saves what it caught and says so.</string>
     <string name="sample_crash">Crash</string>
     <string name="sample_anr">ANR (blocks the main thread)</string>
+    <string name="sample_crash_twice">Crash twice (two reports at the start after)</string>
 
     <!-- Guru's words (GuruTexts). The Amiga lines themselves stay English. -->
     <string name="guru_hint">double-tap: close · hold: share</string>

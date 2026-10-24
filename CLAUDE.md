@@ -48,8 +48,10 @@ The host interface is `Guru.install`, `Guru.showPending` and `GuruTexts`.
 7. **Save first, then tell; delete only what is saved.** At every start, before any alert,
    each report goes to `Download/Guru` as a `.json`; Guru's copy goes once the file is
    saved (`IS_PENDING` cleared), and from then on the file is the user's. The alert only
-   tells, once, and decides nothing; nothing waits on the user. Of its own files there Guru
-   keeps the newest 32 and never touches anyone else's.
+   tells and decides nothing; nothing waits on the user, and nothing of the alert's may
+   crash the host twice (texts that throw are caught, Guru's own crash on main leaves the
+   next alert out). Of its own files there Guru keeps the newest 32 and never touches anyone
+   else's.
 8. **No manifest, no resources, everything `internal`.** Texts come from the host via
    `GuruTexts`; only the Amiga lines stay fixed English.
 9. **No code for a particular host.** What only Verso needs belongs in Verso (like

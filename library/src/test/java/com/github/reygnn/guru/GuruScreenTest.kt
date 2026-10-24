@@ -49,7 +49,7 @@ class GuruScreenTest {
         val dialog = show()
         val view = view(dialog)
 
-        view.performLongClick()
+        assertTrue(view.performLongClick())
         view.performLongClick()
         view.performClick()
 

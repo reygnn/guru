@@ -57,6 +57,30 @@ class GuruShowPendingTest {
     }
 
     @Test
+    fun `nothing saved queues nothing for the host's main`() {
+        installed()
+        val onUi = mutableListOf<() -> Unit>()
+        Guru.showPending(host.activity().get()) { onUi += it }
+
+        host.runIo()
+
+        assertTrue(onUi.isEmpty())
+    }
+
+    @Test
+    fun `a report not saved queues nothing either`() {
+        host.crashed(a)
+        media.refuse = setOf(1)
+        installed()
+        val onUi = mutableListOf<() -> Unit>()
+        Guru.showPending(host.activity().get()) { onUi += it }
+
+        host.runIo()
+
+        assertTrue(onUi.isEmpty())
+    }
+
+    @Test
     fun `a report not saved is not shown - it waits for the next start`() {
         host.crashed(a)
         media.refuse = setOf(1)
@@ -179,5 +203,102 @@ class GuruShowPendingTest {
 
         assertEquals(1, media.rows.size)
         assertTrue(host.store.pending().isEmpty())
+    }
+
+    // ---- an alert that cannot be shown -------------------------------------------
+
+    @Test
+    fun `host texts that throw cost the alert, not the host`() {
+        host.crashed(a)
+        val broken = object : GuruTexts {
+            override fun saved(count: Int): String = throw IllegalStateException("string resource gone")
+        }
+        Guru.install(host.app, host.io, broken)
+        host.store.markExitsSeen(System.currentTimeMillis() - GuruHostRule.MINUTE_MS)
+        val activity = host.activity().get()
+        Guru.showPending(activity) { activity.mainExecutor.execute(it) }
+
+        host.runIo()
+        host.idleMain()
+
+        assertNull(ShadowDialog.getLatestDialog())
+        assertEquals(1, media.rows.size)
+    }
+
+    @Test
+    fun `the alert's own crash leaves the next alert out`() {
+        host.store.write(report(id = a, thread = "main",
+            trace = "java.lang.IllegalStateException: draw\n\tat com.github.reygnn.guru.GuruView.onDraw(GuruScreen.kt:1)"))
+        installed()
+        Guru.showPending(host.activity().get()) { it() }
+
+        host.runIo()
+
+        assertNull(ShadowDialog.getLatestDialog())
+        assertEquals(1, media.rows.size)
+    }
+
+    @Test
+    fun `a crash below Guru's package, or off main, still gets its alert`() {
+        host.store.write(report(id = a, thread = "main",
+            trace = "java.lang.IllegalStateException: boom\n\tat com.github.reygnn.guru.sample.MainActivity.onCreate(MainActivity.kt:1)"))
+        host.store.write(report(id = b, crashedAt = System.currentTimeMillis(), thread = "io",
+            trace = "java.lang.IllegalStateException: io\n\tat com.github.reygnn.guru.Guru.save(Guru.kt:1)"))
+
+        assertTrue(shown().isShowing)
+    }
+
+    // ---- an alert lost before it was answered ------------------------------------
+
+    @Test
+    fun `an activity gone before the alert passes it to the next call`() {
+        host.crashed(a)
+        installed()
+        val controller = host.activity()
+        val onUi = mutableListOf<() -> Unit>()
+        Guru.showPending(controller.get()) { onUi += it }
+        host.runIo()
+        controller.pause().stop().destroy()
+        onUi.single()()
+
+        Guru.showPending(host.activity().get()) { it() }
+        host.runIo()
+
+        assertTrue(ShadowDialog.getLatestDialog().isShowing)
+    }
+
+    @Test
+    fun `an alert lost to a recreate comes back`() {
+        host.crashed(a)
+        installed()
+        val controller = host.activity()
+        Guru.showPending(controller.get()) { it() }
+        host.runIo()
+        val first = ShadowDialog.getLatestDialog()
+
+        controller.pause().stop().destroy()
+        Guru.showPending(host.activity().get()) { it() }
+        host.runIo()
+
+        assertFalse(first.isShowing)
+        val again = ShadowDialog.getLatestDialog()
+        assertTrue(again !== first && again.isShowing)
+    }
+
+    @Test
+    fun `an answered alert does not come back`() {
+        host.crashed(a)
+        installed()
+        val controller = host.activity()
+        Guru.showPending(controller.get()) { it() }
+        host.runIo()
+        val first = ShadowDialog.getLatestDialog()
+        first.guruView().performClick()
+
+        controller.pause().stop().destroy()
+        Guru.showPending(host.activity().get()) { it() }
+        host.runIo()
+
+        assertTrue(ShadowDialog.getLatestDialog() === first)
     }
 }
