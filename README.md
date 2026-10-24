@@ -216,11 +216,11 @@ itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 159 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 165 tests, JUnit 4, no mocks, each mutation-checked.
 
-- **85 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
+- **90 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
   `org.json` for parsing the JSON back (the library Acrarium reads it with).
-- **74 Robolectric tests** for what the JVM alone cannot reach:
+- **75 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, no receiver.
   - Exit records via `ShadowActivityManager`, an unreadable ANR dump too.
   - Saving at the start through a fake MediaStore provider: one file per report in

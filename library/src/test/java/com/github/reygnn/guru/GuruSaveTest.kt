@@ -1,7 +1,9 @@
 package com.github.reygnn.guru
 
 import android.app.ActivityManager
+import android.app.Application
 import android.app.ApplicationExitInfo
+import android.content.Context
 import android.provider.MediaStore
 import android.view.ViewGroup
 import org.json.JSONObject
@@ -378,5 +380,28 @@ class GuruSaveTest {
         start()
 
         assertEquals(listOf("ANR", "CRASH"), media.rows.map { it.json().getJSONObject("CUSTOM_DATA").getString("GURU_KIND") })
+    }
+
+    /**
+     * Each io step is guarded on its own: an exit look that throws (here the system's
+     * ActivityManager) reaches neither the host's io thread nor the save after it.
+     */
+    @Test
+    fun `an exit look that throws stops neither io nor the save`() {
+        host.crashed(a)
+        val app = object : Application() {
+            init {
+                attachBaseContext(host.app)
+            }
+
+            override fun getSystemService(name: String): Any? =
+                if (name == Context.ACTIVITY_SERVICE) throw SecurityException("no exit records") else super.getSystemService(name)
+        }
+        Guru.install(app, host.io)
+        host.store.markExitsSeen(System.currentTimeMillis() - GuruHostRule.MINUTE_MS)
+
+        host.runIo()
+
+        assertEquals(listOf(a), media.rows.map { it.json().getString("REPORT_ID") })
     }
 }

@@ -132,6 +132,17 @@ class GuruStoreTest {
         assertEquals(listOf("b"), s.pending().map { it.id })
     }
 
+    /** By the whole id, never a part of it: "", a prefix or a suffix removes nothing. */
+    @Test
+    fun `remove matches whole ids only`() {
+        val s = store()
+        s.write(r("abc-1", 1))
+
+        s.remove(listOf("", "a", "abc", "1", "-1", "abc-"))
+
+        assertEquals(listOf("abc-1"), s.pending().map { it.id })
+    }
+
     @Test
     fun `nothing written, nothing pending`() {
         assertEquals(emptyList<GuruReport>(), store().pending())

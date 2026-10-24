@@ -12,15 +12,18 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 159 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 165 tests):
 
 ```
-GuruStoreTest       18  reports on real files: atomic write (.new, rename, dir fsync), newest
-                        first, at most 8, a refused rename, ASCII names in any locale,
+GuruStoreTest       19  reports on real files: atomic write (.new, rename, dir fsync), newest
+                        first, at most 8, a refused rename, ASCII names in any locale, remove
+                        by whole id only,
                         exits-seen, installation-id, the saved crash times (newest, distinct,
                         unreadable = none)
-GuruNumberTest      12  the number: kind with the dead-end bit, FNV-1a over the root cause's
-                        type and first three frames, stable across messages and line numbers
+GuruNumberTest      16  the number: kind with the dead-end bit, FNV-1a over the UTF-8 bytes of
+                        the root cause's type (the last "Caused by:", a space before the colon
+                        ignored) and first three frames, stable across messages and line
+                        numbers; an ANR's main block ends at its blank line
 ReportCodecTest     10  key=value round-trip (a hostile trace too); an unknown key from a newer
                         Guru skipped; missing field, bad value, bad escape or a cut-off file
                         is no report
@@ -41,7 +44,7 @@ GuruProcessTest      6  building a report from a crash (trace capped) or an exit
 GuruHandlerTest      5  one capture per process, a failing capture swallowed, the previous
                         handler always reached with the original throwable
 GuruTextsTest        3  the English defaults; a host overrides only what it translates
-GuruSaveTest        25  Robolectric + FakeMediaStore: saving at the start, after the exit
+GuruSaveTest        26  Robolectric + FakeMediaStore: saving at the start, after the exit
                         look on io; one .json per report in the Downloads collection,
                         Download/Guru (name, MIME), hidden until all bytes are in, its own
                         report's ACRA JSON, the installation's one id, a trace beyond ASCII
@@ -54,7 +57,8 @@ GuruSaveTest        25  Robolectric + FakeMediaStore: saving at the start, after
                         pruning keeps the newest 32 own files, never another owner's or
                         another folder's, nothing when nothing was pending, also when
                         nothing could be saved, and a failing listing or delete stops no
-                        save and no alert
+                        save and no alert; an exit look that throws stops neither io nor the
+                        save
 GuruShowPendingTest 18  Robolectric: the alert only for what this start saved, after the save,
                         on the host's main; nothing saved queues nothing; the newest's number
                         and how many; once seen, never again; a double-tap or Back only
