@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 165 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 167 tests):
 
 ```
 GuruStoreTest       19  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -79,9 +79,10 @@ GuruInstallTest     11  Robolectric (every save refused, so reports stay readabl
                         and other reasons stay out, an unreadable dump (checked or unchecked)
                         still a report and the mark moved, a native tombstone stays out, an
                         ANR report hides no crash exit
-GuruScreenTest       5  Robolectric: close shares nothing, share acts once (the hold
+GuruScreenTest       7  Robolectric: close shares nothing, share acts once (the hold
                         consumed); TalkBack's action labels and description from GuruTexts;
-                        the alert closes with its activity
+                        the alert closes with its activity; a long host line shrinks only
+                        itself; the hint reads at WCAG contrast on black
 GuruTouchTest       10  Robolectric, real MotionEvents: a double-tap closes, a still hold
                         shares; a single tap, two slow taps, a swipe, a slide past the slop
                         and a sliding second tap do nothing; TalkBack's click and long click

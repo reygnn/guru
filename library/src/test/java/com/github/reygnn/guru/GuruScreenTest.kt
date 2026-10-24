@@ -1,6 +1,7 @@
 package com.github.reygnn.guru
 
 import android.app.Dialog
+import android.graphics.Color
 import android.view.ViewGroup
 import android.view.accessibility.AccessibilityNodeInfo
 import org.junit.Assert.assertEquals
@@ -85,5 +86,36 @@ class GuruScreenTest {
 
         assertFalse(dialog.isShowing)
         assertEquals(0, shared)
+    }
+
+    // ---- fitting and contrast --------------------------------------------------------
+
+    private fun sizesWith(last: String): Pair<Float, Float> {
+        val dialog = GuruScreen.show(host.activity().get(), lines + last, German, onShare = {})
+        host.idleMain()
+        return (view(dialog) as GuruView).textSizes
+    }
+
+    @Test
+    fun `a long host line shrinks only itself, a short one is as big as the rest`() {
+        val (quoteShort, lastShort) = sizesWith("ok")
+        // Robolectric measures about a pixel a char in a 320 px wide view: too long here means long.
+        val (quoteLong, lastLong) = sizesWith("8 Berichte in Download/Guru gespeichert ".repeat(12))
+
+        assertEquals(quoteShort, quoteLong, 0.01f)
+        assertEquals(quoteShort, lastShort, 0.01f)
+        assertTrue(lastLong < quoteLong)
+    }
+
+    @Test
+    fun `the hint reads at WCAG contrast on black`() {
+        fun channel(c: Int): Double {
+            val v = c / 255.0
+            return if (v <= 0.04045) v / 12.92 else Math.pow((v + 0.055) / 1.055, 2.4)
+        }
+        val grey = GuruView.HINT_GREY
+        val luminance = 0.2126 * channel(Color.red(grey)) + 0.7152 * channel(Color.green(grey)) + 0.0722 * channel(Color.blue(grey))
+
+        assertTrue((luminance + 0.05) / 0.05 >= 4.5)
     }
 }

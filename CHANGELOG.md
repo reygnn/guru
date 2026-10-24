@@ -3,6 +3,20 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
+## 2.0.1 — 2026-10-24
+
+Checked on the A17: "2 Berichte in Download/Guru gespeichert" set a little smaller, the Amiga
+lines at their full size; the hint visibly lighter.
+
+- Fix: the host's "saved" line set the text size of the whole alert — a German "8 Berichte
+  in Download/Guru gespeichert" is longer than "Press left mouse button to continue." and
+  shrank every line. It now fits on its own, never above the Amiga lines.
+- Fix: the hint's grey (0x666666, about 3.7 : 1 on black) was below WCAG's 4.5 : 1; now
+  0x8C8C8C, about 6.2 : 1.
+- Tests for the mutants audit 2026-10-23 #11 left open (a guarded io step, remove by whole
+  id, the last "Caused by:", FNV over UTF-8, an ANR's main block, a space before the colon);
+  the on-device test cleans its folder up again. 167 tests.
+
 ## 2.0.0 — 2026-10-24
 
 **Breaking.** Save first, then tell.

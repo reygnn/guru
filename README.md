@@ -159,7 +159,8 @@ internal class AppGuruTexts(private val context: Context) : GuruTexts {
 They are read each time the screen is built, so a language change in between is picked
 up. Without `texts`: `GuruTexts.English`. Every member has a default (the
 English one), so a host overrides only what it translates. A translated hint that is
-longer shrinks to the width, like the alert lines.
+longer shrinks to the width, like the alert lines; a longer "saved" line shrinks only itself,
+never the Amiga lines.
 
 ## Release builds
 
@@ -216,11 +217,11 @@ itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 165 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 167 tests, JUnit 4, no mocks, each mutation-checked.
 
 - **90 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
   `org.json` for parsing the JSON back (the library Acrarium reads it with).
-- **75 Robolectric tests** for what the JVM alone cannot reach:
+- **77 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, no receiver.
   - Exit records via `ShadowActivityManager`, an unreadable ANR dump too.
   - Saving at the start through a fake MediaStore provider: one file per report in
@@ -232,7 +233,8 @@ itself when its activity is destroyed.
     not the host; Guru's own crash on main leaves the next alert out.
   - Sharing: the chooser offers the files with read access in a task of its own; one that
     cannot start costs nothing.
-  - `GuruScreen`: share acts once, TalkBack labels, closing with the activity.
+  - `GuruScreen`: share acts once, TalkBack labels, closing with the activity; a long host
+    line shrinks only itself; the hint's contrast.
   - Touch: a double-tap closes, a still hold shares; a single tap or a swipe does nothing.
 
 `library/src/androidTest/java`: `GuruDownloadsInstrumentedTest` (4), on a device — what

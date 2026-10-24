@@ -106,6 +106,7 @@ internal class GuruView(
         typeface = Typeface.MONOSPACE
         textAlign = Paint.Align.CENTER
     }
+    private val lastText = Paint(text)
     private val hintText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = HINT_GREY
         typeface = Typeface.MONOSPACE
@@ -197,17 +198,25 @@ internal class GuruView(
         measureBox()
     }
 
-    // The text size the longest line fits the box at, never above TEXT_SP; the hint likewise
-    // fits the width under the box, never above HINT_SP.
+    // The text size the longest line fits the box at, never above TEXT_SP — but the last line,
+    // the host's (where the reports went), fits on its own, never above the others: a longer
+    // translation shrinks only itself, not the Amiga lines. The hint fits the width under the
+    // box, never above HINT_SP.
     private fun measureBox() {
         if (width == 0) return
         val inside = width - 2 * pad
-        fit(text, TEXT_SP, lines, inside - 2 * pad)
+        val head = if (lines.size > 1) lines.dropLast(1) else lines
+        fit(text, TEXT_SP, head, inside - 2 * pad)
+        lastText.textSize = text.textSize
+        lastText.textSize *= minOf(1f, (inside - 2 * pad) / lastText.measureText(lines.last()))
         fit(hintText, HINT_SP, listOf(hint), inside)
         lineHeight = text.fontSpacing
         val top = topInset + pad
         box.set(pad, top, width - pad, top + 2 * pad + lineHeight * lines.size)
     }
+
+    /** The text sizes as laid out — the Amiga lines', the host's last line's: for tests. */
+    internal val textSizes get() = text.textSize to lastText.textSize
 
     private fun fit(paint: Paint, sp: Float, texts: List<String>, room: Float) {
         paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, metrics)
@@ -220,8 +229,8 @@ internal class GuruView(
         if (lit) canvas.drawRect(box, border)
         val x = width / 2f
         var y = box.top + pad - text.ascent()
-        for (line in lines) {
-            canvas.drawText(line, x, y, text)
+        lines.forEachIndexed { i, line ->
+            canvas.drawText(line, x, y, if (i == lines.lastIndex && lines.size > 1) lastText else text)
             y += lineHeight
         }
         canvas.drawText(hint, x, box.bottom + pad - hintText.ascent(), hintText)
@@ -230,7 +239,8 @@ internal class GuruView(
     companion object {
         /** The Kickstart's alert red. */
         val ALERT_RED = Color.rgb(0xFF, 0x00, 0x00)
-        val HINT_GREY = Color.rgb(0x66, 0x66, 0x66)
+        /** On black about 6.2 : 1, above WCAG's 4.5 : 1 for small text. */
+        val HINT_GREY = Color.rgb(0x8C, 0x8C, 0x8C)
         const val BLINK_MS = 700L
         const val TEXT_SP = 16f
         const val HINT_SP = 12f
