@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
 import android.app.ApplicationExitInfo
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -100,38 +101,49 @@ internal object Guru {
         )
     }
 
-    // Each report saved is the user's file from then on, and Guru's copy goes at once — before
-    // the next is saved, so a death in between repeats nothing already saved. One that fails
-    // stays for the next start. The chooser is only an offer: whatever happens there, the files
-    // are in Download/Guru already.
+    // Each report saved is the user's file from then on, and Guru's copy goes at once, before the
+    // next is saved: a death in between repeats at most the one just saved (a second ZIP, the same
+    // REPORT_ID). One that fails stays for the next start. The chooser is only an offer: whatever
+    // happens there, the files are in Download/Guru already.
     private fun save(activity: Activity, s: Setup, pending: Pending, onUi: (() -> Unit) -> Unit) {
         val zone = ZoneId.systemDefault()
         val resolver = s.context.contentResolver
         val saved = pending.reports.mapNotNull { report ->
             val base = GuruDownloads.baseName(s.label, report, zone)
             val bytes = GuruDownloads.zip(base, pending.json.getValue(report.id), report.crashedAt)
-            GuruDownloads.save(resolver, base, bytes, ::log)?.also { s.store.remove(listOf(report.id)) }
+            GuruDownloads.save(resolver, base, bytes, ::log)?.let { uri ->
+                s.store.remove(listOf(report.id))
+                report to uri
+            }
         }
         s.toast(s.texts.saved(saved.size, pending.reports.size))
-        if (saved.isNotEmpty()) onUi { offer(activity, pending.reports.first(), saved) }
+        if (saved.isNotEmpty()) onUi { offer(activity, saved.first().first, saved.map { it.second }) }
     }
 
     // A chooser that cannot start (no app, or the system refuses) costs nothing: the files stay.
     @Suppress("TooGenericExceptionCaught")
-    private fun offer(activity: Activity, first: GuruReport, files: List<Uri>) {
+    private fun offer(activity: Activity, subject: GuruReport, files: List<Uri>) {
         if (activity.isFinishing || activity.isDestroyed) return
         val intent = if (files.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, files.single())
         } else {
             Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(files))
         }
-        // The start copies EXTRA_STREAM into the ClipData (Intent.migrateExtraStreamToClipData);
-        // the read grant rides on it to the app picked.
+        // The ClipData set here, not left to the start's migration: createChooser hands it and the
+        // read grant on to the chooser too, so the chooser can preview the files, not only the
+        // app picked can read them.
+        val clip = ClipData.newRawUri(null, files.first())
+        files.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
         intent.setType(GuruDownloads.MIME)
-            .putExtra(Intent.EXTRA_SUBJECT, GuruText.subject(first))
+            .putExtra(Intent.EXTRA_SUBJECT, GuruText.subject(subject))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .clipData = clip
+        // A task of its own: the save waited on the host's io, so by now the user may be elsewhere,
+        // and from a singleTask HOME the chooser and the app picked would otherwise land in the
+        // launcher's task — a HOME press would clear a half-written mail.
+        val chooser = Intent.createChooser(intent, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
-            activity.startActivity(Intent.createChooser(intent, null))
+            activity.startActivity(chooser)
         } catch (e: RuntimeException) {
             log("chooser not started", e)
         }

@@ -62,14 +62,17 @@ class GuruShowPendingTest {
 
     @Test
     fun `the alert shows the newest report's number and how many more`() {
-        host.crashed(a, at = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS)
+        val older = report(id = a, crashedAt = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS,
+            trace = "java.lang.IllegalArgumentException: old\n\tat com.example.app.Old.run(Old.kt:1)").also { host.store.write(it) }
         val newest = host.crashed(b)
         installed()
         Guru.showPending(host.activity().get()) { it() }
         host.runIo()
 
         val said = ShadowDialog.getLatestDialog().guruView().contentDescription.toString()
+        assertTrue(older.number != newest.number)
         assertTrue(said, said.contains("Guru Meditation ${newest.number}"))
+        assertFalse(said, said.contains(older.number))
         assertTrue(said, said.contains("+1 more"))
     }
 
@@ -87,6 +90,35 @@ class GuruShowPendingTest {
         assertEquals(listOf(a), host.store.pending().map { it.id })
         host.runIo()
         assertTrue(host.store.pending().isEmpty())
+    }
+
+    @Test
+    fun `a tap removes every report on screen`() {
+        host.crashed(a, at = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS)
+        host.crashed(b)
+        installed()
+        Guru.showPending(host.activity().get()) { it() }
+        host.runIo()
+
+        ShadowDialog.getLatestDialog().guruView().performClick()
+        host.runIo()
+
+        assertTrue(host.store.pending().isEmpty())
+    }
+
+    @Test
+    fun `a finishing activity gets no alert`() {
+        host.crashed(a)
+        installed()
+        val activity = host.activity().get()
+        val onUi = mutableListOf<() -> Unit>()
+        Guru.showPending(activity) { onUi += it }
+        host.runIo()
+
+        activity.finish()
+        onUi.single()()
+
+        assertNull(ShadowDialog.getLatestDialog())
     }
 
     @Test

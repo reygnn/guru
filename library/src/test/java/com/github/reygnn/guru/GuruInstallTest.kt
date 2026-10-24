@@ -152,4 +152,44 @@ class GuruInstallTest {
         assertEquals("ApplicationNotResponding: Input dispatching timed out", pending.single { it.kind == GuruKind.ANR }.trace)
         assertEquals(anrAt, host.store.exitsSeen())
     }
+
+    @Test
+    fun `a dump that throws unchecked still makes a report, and the mark moves`() {
+        host.store.markExitsSeen(now - 10 * GuruHostRule.MINUTE_MS)
+        val at = now - GuruHostRule.MINUTE_MS
+        val broken = object : InputStream() {
+            override fun read(): Int = throw IllegalStateException("dump gone")
+        }
+        exit(ApplicationExitInfo.REASON_ANR, at, "Input dispatching timed out", broken)
+
+        Guru.install(host.app, host.io)
+        host.runIo()
+
+        assertEquals("ApplicationNotResponding: Input dispatching timed out", host.store.pending().single().trace)
+        assertEquals(at, host.store.exitsSeen())
+    }
+
+    @Test
+    fun `a native crash's tombstone stays out`() {
+        host.store.markExitsSeen(now - 10 * GuruHostRule.MINUTE_MS)
+        exit(ApplicationExitInfo.REASON_CRASH_NATIVE, now - GuruHostRule.MINUTE_MS, "SIGSEGV", dump = "TOMBSTONE BYTES")
+
+        Guru.install(host.app, host.io)
+        host.runIo()
+
+        assertEquals("NativeCrash: SIGSEGV", host.store.pending().single().trace)
+    }
+
+    @Test
+    fun `an ANR report beside a crash exit does not hide it`() {
+        host.store.markExitsSeen(now - 10 * GuruHostRule.MINUTE_MS)
+        val anr = report(id = "0b6c2f8e-1d2a-4c3b-9e8f-000000000002", kind = GuruKind.ANR, crashedAt = now - 2 * GuruHostRule.MINUTE_MS)
+        host.store.write(anr)
+        exit(ApplicationExitInfo.REASON_CRASH, anr.crashedAt + 500, "crash")
+
+        Guru.install(host.app, host.io)
+        host.runIo()
+
+        assertEquals(setOf(GuruKind.ANR, GuruKind.CRASH), host.store.pending().map { it.kind }.toSet())
+    }
 }

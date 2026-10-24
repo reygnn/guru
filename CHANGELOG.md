@@ -11,17 +11,35 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
   permission), named after app, version and crash time
   (`Verso-0.3.1-2026-10-24_14-03-12.zip`), one entry inside: the ACRA JSON, unchanged.
   Guru's copy goes as soon as the file is saved; one that cannot be saved stays.
-- Then the chooser offers the saved files (`EXTRA_STREAM`, read access granted). Only URIs
-  travel, so the Binder limit is gone, and nothing in the chooser decides about a report:
-  `ChooserResult`, the mutable `PendingIntent` and the receiver are gone with it.
+- Each ZIP is synced before Guru's copy goes; label and version in the name are cut so the
+  name stays under 255 bytes.
+- Then the chooser offers the saved files (`EXTRA_STREAM` and ClipData, read access for the
+  chooser and the app picked, `FLAG_ACTIVITY_NEW_TASK`). Only URIs travel, so the Binder
+  limit is gone, and nothing in the chooser decides about a report: `ChooserResult`, the
+  mutable `PendingIntent` and the receiver are gone with it.
 - **Removed:** `GuruSink` (`Share` and `Acra`) and `AcraPost` — Guru has no network code.
   `Guru.install(app, io, texts)` loses its `sink` parameter.
 - **`GuruTexts`:** `actionSend` → `actionSave`, `sent(sent, total)` → `saved(saved, total)`;
-  the hint reads "double-tap: continue · hold: save · back: later". Every member now has a
-  default (the English one). **Hosts must rename their overrides.**
-- 124 tests.
+  the hint reads "double-tap: continue · hold: save · back: later". Every member now has its
+  English text as the default in the interface; `GuruTexts.English` overrides nothing.
+- Reports now sit in shared storage after a hold — README, "Privacy".
+- 139 tests.
 
-Earlier on `main`, before 2.0.0 (never tagged as 1.0.2):
+**Host migration** (what a host changes when it pulls 2.0.0):
+
+1. `Guru.install(app, GuruSink.Share(), io = …, texts = …)` → `Guru.install(app, io = …,
+   texts = …)`; drop the `GuruSink` import.
+2. In the host's `GuruTexts`: `actionSend` → `actionSave`, `sent` → `saved` — and **rewrite
+   the strings**, their meaning changed: "saved to Download/Guru", not "sent". Update the
+   **hint** too ("hold: save"); it compiles unchanged and would still say "send".
+3. Don't fix the compile errors by deleting the overrides: every member has an English
+   default now, so a deleted one silently turns English.
+4. Tests that pin the install line (Verso's `SourceGuardTest`) need the new one.
+5. INTERNET: drop it if it was only there for `GuruSink.Acra`.
+6. Say in the host's caveats that reports land in `Download/Guru` (README, "Privacy").
+
+Earlier on `main`, before 2.0.0 (never tagged as 1.0.2). The two share fixes are
+superseded by 2.0.0, which removes the text share; the ANR-dump fix stays:
 
 - Fix: a share cut at its limit removed every report once an app was picked, the ones cut
   off too. A share now carries whole reports only and removes exactly those; the rest stay

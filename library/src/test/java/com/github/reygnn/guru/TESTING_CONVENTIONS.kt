@@ -54,7 +54,10 @@ package com.github.reygnn.guru
  *
  * MEDIASTORE — Robolectric has no MediaProvider. FakeMediaStore registers a
  * provider under the `media` authority that keeps rows in memory and their
- * bytes in real files, and can refuse an insert; the ZIP is read back from it.
+ * bytes in real files, and can refuse or throw on an insert, a write, the
+ * publish (update) or a delete. Read the ZIP back with `ZipFile`, not
+ * `ZipInputStream`: only ZipFile needs the central directory, so only it
+ * notices a file cut short.
  *
  * LOCALE — a class whose tests set the default locale holds a GuruLocaleRule,
  * which restores main, FORMAT and DISPLAY.

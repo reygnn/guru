@@ -12,35 +12,49 @@ import java.io.FileNotFoundException
 
 /**
  * MediaStore for Robolectric, which has no MediaProvider: rows in memory, their bytes in real
- * files. [refuse] turns inserts down from that row on (1-based); [failWrite] refuses the stream.
+ * files. Inserts are numbered from 1; [refuse] turns those down (null), [throwOn] throws on them.
+ * [failWrite] refuses the stream, [refuseUpdate] publishes nothing (0 rows), [throwOnDelete]
+ * makes removing an unfinished file throw.
  */
 class FakeMediaStore : ContentProvider() {
 
-    class Row(val uri: Uri, val values: ContentValues, val file: File)
+    /** [inserted]: the values as inserted; [values]: as they are now; [sizeAtPublish]: the file's bytes when IS_PENDING went 0. */
+    class Row(val collection: Uri, val uri: Uri, val inserted: ContentValues, val file: File) {
+        val values = ContentValues(inserted)
+        var sizeAtPublish: Long? = null
+    }
 
     val rows = mutableListOf<Row>()
-    var refuse = Int.MAX_VALUE
+    var refuse = emptySet<Int>()
+    var throwOn = emptySet<Int>()
     var failWrite = false
+    var refuseUpdate = false
+    var throwOnDelete = false
     private var inserts = 0
 
     override fun onCreate() = true
 
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
         inserts++
-        if (inserts >= refuse) return null
-        val row = Row(uri.buildUpon().appendPath(inserts.toString()).build(), ContentValues(values), File(context!!.cacheDir, "media-$inserts"))
+        if (inserts in throwOn) throw IllegalStateException("insert $inserts thrown")
+        if (inserts in refuse) return null
+        val row = Row(uri, uri.buildUpon().appendPath(inserts.toString()).build(), ContentValues(values), File(context!!.cacheDir, "media-$inserts"))
         rows += row
         return row.uri
     }
 
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int {
-        val row = rows.find { it.uri == uri } ?: return 0
+        val row = rows.find { it.uri == uri }
+        if (row == null || refuseUpdate) return 0
+        if (values?.getAsInteger(MediaStore.MediaColumns.IS_PENDING) == 0) row.sizeAtPublish = row.file.length()
         row.values.putAll(values)
         return 1
     }
 
-    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int =
-        if (rows.removeIf { it.uri == uri }) 1 else 0
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
+        if (throwOnDelete) throw IllegalStateException("delete thrown")
+        return if (rows.removeIf { it.uri == uri }) 1 else 0
+    }
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         val row = rows.find { it.uri == uri }

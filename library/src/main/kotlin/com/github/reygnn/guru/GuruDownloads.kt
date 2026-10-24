@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.net.Uri
 import android.provider.MediaStore
 import java.io.ByteArrayOutputStream
+import java.io.FileOutputStream
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -32,14 +33,24 @@ internal object GuruDownloads {
      * App name, version, crash time in [zone]: "Verso-0.3.1-2026-10-24_14-03-12". Whatever is
      * not a letter, digit, dot or dash becomes `_`; an empty part is left out. A second report of
      * the same second gets MediaStore's " (1)".
+     *
+     * Label and version are cut to [MAX_LABEL] and [MAX_VERSION] chars: a file name holds 255
+     * bytes, a char here up to 3 in UTF-8 (only BMP chars survive [safe]), and a name too long
+     * would fail every save of that report.
      */
     fun baseName(label: String, report: GuruReport, zone: ZoneId): String =
-        listOf(safe(label), safe(report.env.versionName), STAMP.format(Instant.ofEpochMilli(report.crashedAt).atZone(zone)))
-            .filter { it.isNotEmpty() }
-            .joinToString("-")
+        listOf(
+            safe(label).take(MAX_LABEL),
+            safe(report.env.versionName).take(MAX_VERSION),
+            STAMP.format(Instant.ofEpochMilli(report.crashedAt).atZone(zone)),
+        ).filter { it.isNotEmpty() }.joinToString("-")
 
+    // Per UTF-16 unit: a surrogate is no letter, so a pair becomes "__" and nothing half survives.
     private fun safe(part: String): String =
         part.trim().map { if (it.isLetterOrDigit() || it == '.' || it == '-') it else '_' }.joinToString("")
+
+    const val MAX_LABEL = 40
+    const val MAX_VERSION = 24
 
     /** The ZIP's bytes: one entry, [base].json, dated [time]. */
     fun zip(base: String, json: String, time: Long): ByteArray {
@@ -54,7 +65,8 @@ internal object GuruDownloads {
 
     /**
      * Saves [bytes] as [base].zip; the file shows only once complete (IS_PENDING). Null when it
-     * could not be saved — then nothing is left behind.
+     * could not be saved — then the unfinished file is removed, or, if even that fails, left
+     * hidden for MediaStore to sweep.
      */
     // anything the provider throws means "not saved", and the report stays
     @Suppress("TooGenericExceptionCaught")
@@ -77,10 +89,20 @@ internal object GuruDownloads {
         return null
     }
 
-    /** The bytes into the pending file, then shown; false when the provider says no. */
+    /**
+     * The bytes into the pending file, synced, then shown; false when the provider says no. Synced
+     * first because Guru's own copy goes right after: a power cut must not leave an empty ZIP and
+     * no report (hard rule 4).
+     */
     private fun publish(resolver: ContentResolver, uri: Uri, bytes: ByteArray): Boolean {
-        val out = resolver.openOutputStream(uri) ?: return false
-        out.use { it.write(bytes) }
+        val file = resolver.openFileDescriptor(uri, "w") ?: return false
+        file.use {
+            FileOutputStream(it.fileDescriptor).apply {
+                write(bytes)
+                flush()
+            }
+            it.fileDescriptor.sync()
+        }
         val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
         return resolver.update(uri, done, null, null) == 1
     }
