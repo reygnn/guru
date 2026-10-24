@@ -50,6 +50,7 @@ class GuruDownloadsInstrumentedTest {
         // Through the shell, so it also takes the files we don't own and any pending ones; MediaStore
         // drops their rows. The folder's own row may stay: best effort, its output is not checked.
         // No spaces in the argument — executeShellCommand splits on them and runs no shell.
+        shell("rm -rf $dirPath")
         val dir = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path}/$subDir"
         shell("content delete --uri content://media/external/file --where _data='$dir'")
     }
