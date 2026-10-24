@@ -55,9 +55,8 @@ package com.github.reygnn.guru
  * MEDIASTORE — Robolectric has no MediaProvider. FakeMediaStore registers a
  * provider under the `media` authority that keeps rows in memory and their
  * bytes in real files, and can refuse or throw on an insert, a write, the
- * publish (update) or a delete. Read the ZIP back with `ZipFile`, not
- * `ZipInputStream`: only ZipFile needs the central directory, so only it
- * notices a file cut short.
+ * publish (update), a query or a delete, and seed published rows of any
+ * owner and folder (`published`) for the pruning tests.
  *
  * LOCALE — a class whose tests set the default locale holds a GuruLocaleRule,
  * which restores main, FORMAT and DISPLAY.
@@ -74,7 +73,7 @@ package com.github.reygnn.guru
  * ============================================================================
  *
  * Only for what needs the Android runtime: `Guru.install` / `showPending`,
- * saving through MediaStore and the chooser it offers, `GuruScreen`. Annotate the class with
+ * saving through MediaStore, the alert and the chooser it offers, `GuruScreen`. Annotate the class with
  * `@RunWith(RobolectricTestRunner::class)`; the SDK is pinned once in
  * `src/test/resources/robolectric.properties`. Drive a plain `Activity` with
  * `Robolectric.buildActivity(...)`; no androidx.test API in the tests.
@@ -85,14 +84,14 @@ package com.github.reygnn.guru
  * Harness traps already paid for:
  *  - Back: idle the main looper first (the dialog's window attaches on a post),
  *    then dispatch KEYCODE_BACK down/up on the dialog.
- *  - MediaStore: `FakeMediaStore.install()` in @Before, before anything saves.
- *    ContentResolver reaches its insert/update/delete/openFile like the real
- *    provider's; the ZIP is read back from `row.file`.
- *  - The save's offer goes through the host's onUi: post it to main
- *    (`activity.mainExecutor.execute(it)`) and idle the looper, or a throw in it
- *    lands in the IO task's guard and no test sees it (GuruSaveTest.hold).
- *  - A start the system refuses: an Activity subclass whose startActivity throws
- *    (GuruSaveTest.RefusingActivity).
+ *  - MediaStore: `FakeMediaStore.install()` in @Before of every class that
+ *    installs Guru — install saves at the start. ContentResolver reaches its
+ *    insert/update/query/delete/openFile like the real provider's; a saved file is
+ *    read back from `row.file`. A class that reads reports from the store after
+ *    the start refuses every save (GuruInstallTest).
+ *  - install queues two io steps (exit look, save); showPending a third.
+ *  - A chooser start the system refuses: an Activity subclass whose startActivity
+ *    throws (GuruShareTest.RefusingActivity).
  *  - Touch (GuruTouchTest): idle the main looper first — the dialog's window attaches
  *    and lays the view out (Robolectric: 320 px wide). Keep every move inside the
  *    view: View's own click handling drops a touch that leaves it, so a swipe off the

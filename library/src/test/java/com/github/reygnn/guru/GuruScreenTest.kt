@@ -17,39 +17,35 @@ class GuruScreenTest {
     @get:Rule val host = GuruHostRule()
 
     private object German : GuruTexts {
-        override val hint = "doppeltippen: weiter · halten: speichern · zurück: später"
-        override val actionContinue = "weiter, Bericht verwerfen"
-        override val actionSave = "Bericht speichern"
-        override fun more(count: Int) = "+$count weitere"
-        override fun saved(saved: Int, total: Int) = "$saved von $total gespeichert"
+        override val hint = "doppeltippen: schließen · halten: teilen"
+        override val actionClose = "schließen"
+        override val actionShare = "Bericht teilen"
+        override fun saved(count: Int) = "$count gespeichert"
     }
 
-    private var continued = 0
-    private var saved = 0
+    private var shared = 0
     private val lines = listOf(GuruText.SOFTWARE_FAILURE, GuruText.PRESS_LEFT, "Guru Meditation #80000001.4A3F21C0")
 
     private val controller = lazy { host.activity() }
 
-    private fun show() = GuruScreen.show(controller.value.get(), lines, German, onContinue = { continued++ }, onSave = { saved++ })
+    private fun show() = GuruScreen.show(controller.value.get(), lines, German, onShare = { shared++ })
 
     private fun view(dialog: Dialog) = dialog.findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
 
     @Test
-    fun `continue acts once`() {
+    fun `close shares nothing, and a later hold neither`() {
         val dialog = show()
         val view = view(dialog)
 
         view.performClick()
-        view.performClick()
         view.performLongClick()
 
-        assertEquals(1, continued)
-        assertEquals(0, saved)
+        assertEquals(0, shared)
         assertFalse(dialog.isShowing)
     }
 
     @Test
-    fun `save acts once`() {
+    fun `share acts once`() {
         val dialog = show()
         val view = view(dialog)
 
@@ -57,8 +53,7 @@ class GuruScreenTest {
         view.performLongClick()
         view.performClick()
 
-        assertEquals(0, continued)
-        assertEquals(1, saved)
+        assertEquals(1, shared)
         assertFalse(dialog.isShowing)
     }
 
@@ -67,8 +62,8 @@ class GuruScreenTest {
         val info = view(show()).createAccessibilityNodeInfo()
 
         val labels = info.actionList.associate { it.id to it.label?.toString() }
-        assertEquals(German.actionContinue, labels[AccessibilityNodeInfo.ACTION_CLICK])
-        assertEquals(German.actionSave, labels[AccessibilityNodeInfo.ACTION_LONG_CLICK])
+        assertEquals(German.actionClose, labels[AccessibilityNodeInfo.ACTION_CLICK])
+        assertEquals(German.actionShare, labels[AccessibilityNodeInfo.ACTION_LONG_CLICK])
     }
 
     @Test
@@ -89,7 +84,6 @@ class GuruScreenTest {
         controller.value.pause().stop().destroy()
 
         assertFalse(dialog.isShowing)
-        assertEquals(0, continued)
-        assertEquals(0, saved)
+        assertEquals(0, shared)
     }
 }

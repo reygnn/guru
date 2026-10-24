@@ -24,28 +24,27 @@ import kotlin.math.hypot
 
 /**
  * The alert: black screen, red text, a red border that blinks — unless the system's animations
- * are off (Settings › Accessibility › Remove animations), then it just stays lit. Double-tap =
- * left button (continue: the reports go), hold = right button (save to Download/Guru), Back =
- * neither (they come back on the next start). Dismisses itself when its activity is destroyed.
+ * are off (Settings › Accessibility › Remove animations), then it just stays lit. It only tells:
+ * the reports are saved already. Double-tap (left button) or Back closes it, hold (right
+ * button) shares the saved files. Dismisses itself when its activity is destroyed.
  */
 internal object GuruScreen {
 
-    fun show(activity: Activity, lines: List<String>, texts: GuruTexts, onContinue: () -> Unit, onSave: () -> Unit): Dialog {
+    fun show(activity: Activity, lines: List<String>, texts: GuruTexts, onShare: () -> Unit): Dialog {
         val dialog = Dialog(activity, android.R.style.Theme_Material_NoActionBar_Fullscreen)
         var decided = false
-        val view = GuruView(activity, lines, texts.hint, texts.actionContinue, texts.actionSave)
+        val view = GuruView(activity, lines, texts.hint, texts.actionClose, texts.actionShare)
         view.setOnClickListener {
             if (!decided) {
                 decided = true
                 dialog.dismiss()
-                onContinue()
             }
         }
         view.setOnLongClickListener {
             if (!decided) {
                 decided = true
                 dialog.dismiss()
-                onSave()
+                onShare()
             }
             true
         }
@@ -76,8 +75,8 @@ internal object GuruScreen {
  *
  * Touch goes through a [GestureDetector], never View's own click handling: the view fills the
  * screen, so View would take any touch that ends on it — a swipe, a finger laid on a dimmed screen
- * to wake it — as a click and discard the reports. Here a double-tap continues ([performClick]) and
- * a still hold saves ([performLongClick]); a single tap does nothing, and a finger that moves past
+ * to wake it — as a click. Here a double-tap closes ([performClick]) and
+ * a still hold shares ([performLongClick]); a single tap does nothing, and a finger that moves past
  * the touch slop cancels both. TalkBack acts through the click and long-click actions, unchanged.
  */
 // Built in code only, never inflated from XML: the tools constructors would have no lines to draw.
@@ -86,8 +85,8 @@ internal class GuruView(
     context: Context,
     private val lines: List<String>,
     private val hint: String,
-    private val actionContinue: String,
-    private val actionSave: String,
+    private val actionClose: String,
+    private val actionShare: String,
 ) : View(context) {
 
     private val metrics = resources.displayMetrics
@@ -160,8 +159,8 @@ internal class GuruView(
         accessibilityDelegate = object : AccessibilityDelegate() {
             override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
                 super.onInitializeAccessibilityNodeInfo(host, info)
-                info.addAction(AccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK, actionContinue))
-                info.addAction(AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, actionSave))
+                info.addAction(AccessibilityAction(AccessibilityNodeInfo.ACTION_CLICK, actionClose))
+                info.addAction(AccessibilityAction(AccessibilityNodeInfo.ACTION_LONG_CLICK, actionShare))
             }
         }
     }

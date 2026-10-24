@@ -1,27 +1,23 @@
 package com.github.reygnn.guru
 
-import android.app.Activity
-import android.content.Intent
-import android.net.Uri
-import android.os.TransactionTooLargeException
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.provider.MediaStore
 import android.view.ViewGroup
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowDialog
-import org.robolectric.shadows.ShadowToast
+import org.robolectric.shadows.ShadowActivityManager.ApplicationExitInfoBuilder
 import java.time.ZoneId
-import java.util.zip.ZipFile
 
+/** Saving at the start, before anything is shown: install's second io step. */
 @RunWith(RobolectricTestRunner::class)
 class GuruSaveTest {
 
@@ -37,97 +33,84 @@ class GuruSaveTest {
         media = FakeMediaStore.install()
     }
 
-    /** An activity the system refuses to start anything for, as with a chooser it cannot show. */
-    class RefusingActivity : Activity() {
-        // what the system throws there: a plain RuntimeException around the Binder's refusal
-        @Suppress("TooGenericExceptionThrown")
-        override fun startActivity(intent: Intent?) {
-            throw RuntimeException("Failure from system", TransactionTooLargeException("data parcel size 1234567 bytes"))
-        }
-    }
-
-    /**
-     * The alert for what is pending now, held — the save queued on io, not run. The host's
-     * onUi posts to main, as a real host's does.
-     */
-    private fun hold(activity: Activity = host.activity().get()): Activity {
+    /** A start: install, the exit history already marked, both io steps run. */
+    private fun start() {
         Guru.install(host.app, host.io)
         host.store.markExitsSeen(System.currentTimeMillis() - GuruHostRule.MINUTE_MS)
-        Guru.showPending(activity) { activity.mainExecutor.execute(it) }
         host.runIo()
-        host.idleMain()
-        ShadowDialog.getLatestDialog().findViewById<ViewGroup>(android.R.id.content).getChildAt(0).performLongClick()
-        return activity
     }
-
-    /** Hold, run the save, bring its offer to main: the chooser started, or null. */
-    private fun holdAndSave(activity: Activity = host.activity().get()): Intent? {
-        hold(activity)
-        host.runIo()
-        host.idleMain()
-        return shadowOf(activity).nextStartedActivity
-    }
-
-    private fun Intent.offered(): Intent = getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)!!
-
-    /** The one entry, through ZipFile: it needs the central directory, so a cut file fails here. */
-    private fun unzip(row: FakeMediaStore.Row): Triple<String, String, Long> =
-        ZipFile(row.file).use { zip ->
-            val entry = zip.entries().toList().single()
-            Triple(entry.name, zip.getInputStream(entry).readBytes().toString(Charsets.UTF_8), entry.time)
-        }
-
-    private fun Intent.clipUris(): List<Uri> = (0 until clipData!!.itemCount).map { clipData!!.getItemAt(it).uri }
 
     private val label get() = host.app.applicationInfo.loadLabel(host.app.packageManager).toString()
 
     private val name get() = MediaStore.MediaColumns.DISPLAY_NAME
 
-    /** Two reports, a older than b, with numbers of their own: pending (and saved) b first. */
+    /** The alert for what this start saved: how many it names, or null when none comes. */
+    private fun alertCount(): Int? {
+        Guru.showPending(host.activity().get()) { it() }
+        host.runIo()
+        val dialog = ShadowDialog.getLatestDialog() ?: return null
+        val said = dialog.findViewById<ViewGroup>(android.R.id.content).getChildAt(0).contentDescription.toString()
+        return (GuruStore.KEEP downTo 1).firstOrNull { said.contains(GuruTexts.English.saved(it)) }
+    }
+
+    private fun FakeMediaStore.Row.json() = JSONObject(file.readText(Charsets.UTF_8))
+
+    private fun ours() = media.rows.filter { it.values.getAsString(MediaStore.MediaColumns.RELATIVE_PATH).trimEnd('/') == "Download/Guru" }
+
+    /** Two reports, a older than b: pending (and saved) b first. */
     private fun twoReports(): Pair<GuruReport, GuruReport> {
-        val older = report(id = a, crashedAt = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS,
-            trace = "java.lang.IllegalArgumentException: old\n\tat com.example.app.Old.run(Old.kt:1)").also { host.store.write(it) }
+        val older = host.crashed(a, at = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS)
         val newer = host.crashed(b)
-        assertTrue(GuruText.subject(older) != GuruText.subject(newer))
         return older to newer
     }
 
     @Test
-    fun `the save waits for the host's io`() {
+    fun `the save waits for the host's io, behind the exit look`() {
         host.crashed(a)
-        hold()
+        Guru.install(host.app, host.io)
 
-        assertEquals(1, host.queuedIo())
+        assertEquals(2, host.queuedIo())
         assertTrue(media.rows.isEmpty())
         assertEquals(listOf(a), host.store.pending().map { it.id })
     }
 
     @Test
-    fun `hold saves each report as a ZIP in Download-Guru and removes it`() {
+    fun `a start saves each report as a json file in Download-Guru and removes it`() {
         val (older, newer) = twoReports()
 
-        holdAndSave()
+        start()
 
         val zone = ZoneId.systemDefault()
         assertEquals(
-            listOf(newer, older).map { GuruDownloads.baseName(label, it, zone) + ".zip" },
+            listOf(newer, older).map { GuruDownloads.baseName(label, it, zone) + ".json" },
             media.rows.map { it.values.getAsString(name) },
         )
         media.rows.forEach { row ->
             assertEquals(MediaStore.Downloads.EXTERNAL_CONTENT_URI, row.collection)
             assertEquals("Download/Guru", row.values.getAsString(MediaStore.MediaColumns.RELATIVE_PATH))
-            assertEquals("application/zip", row.values.getAsString(MediaStore.MediaColumns.MIME_TYPE))
+            assertEquals("application/json", row.values.getAsString(MediaStore.MediaColumns.MIME_TYPE))
             assertEquals(0, row.values.getAsInteger(MediaStore.MediaColumns.IS_PENDING))
         }
         assertTrue(host.store.pending().isEmpty())
-        assertEquals(GuruTexts.English.saved(2, 2), ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
+    fun `each file holds its own report's ACRA JSON`() {
+        val (older, newer) = twoReports()
+
+        start()
+
+        mapOf(newer to media.rows[0], older to media.rows[1]).forEach { (report, row) ->
+            assertEquals(report.id, row.json().getString("REPORT_ID"))
+            assertEquals(report.number, row.json().getJSONObject("CUSTOM_DATA").getString("GURU_MEDITATION"))
+        }
     }
 
     @Test
     fun `a file is hidden until all its bytes are in`() {
         host.crashed(a)
 
-        holdAndSave()
+        start()
 
         val row = media.rows.single()
         assertEquals(1, row.inserted.getAsInteger(MediaStore.MediaColumns.IS_PENDING))
@@ -136,29 +119,10 @@ class GuruSaveTest {
     }
 
     @Test
-    fun `the ZIP holds one entry - the report's ACRA JSON, dated at the crash`() {
-        val report = host.crashed(a, at = System.currentTimeMillis() - 7 * 24 * 60 * GuruHostRule.MINUTE_MS)
+    fun `nothing pending saves nothing`() {
+        start()
 
-        holdAndSave()
-
-        val (entry, json, time) = unzip(media.rows.single())
-        assertEquals(GuruDownloads.baseName(label, report, ZoneId.systemDefault()) + ".json", entry)
-        assertEquals(a, JSONObject(json).getString("REPORT_ID"))
-        assertEquals(report.number, JSONObject(json).getJSONObject("CUSTOM_DATA").getString("GURU_MEDITATION"))
-        assertEquals(report.crashedAt / 2000, time / 2000)
-    }
-
-    @Test
-    fun `each ZIP holds its own report`() {
-        val (older, newer) = twoReports()
-
-        holdAndSave()
-
-        val zone = ZoneId.systemDefault()
-        mapOf(newer to media.rows[0], older to media.rows[1]).forEach { (report, row) ->
-            assertEquals(GuruDownloads.baseName(label, report, zone) + ".zip", row.values.getAsString(name))
-            assertEquals(report.id, JSONObject(unzip(row).second).getString("REPORT_ID"))
-        }
+        assertTrue(media.rows.isEmpty())
     }
 
     @Test
@@ -166,7 +130,7 @@ class GuruSaveTest {
         host.crashed(a)
         host.app.applicationInfo.nonLocalizedLabel = "Guru Sample"
 
-        holdAndSave()
+        start()
 
         assertTrue(media.rows.single().values.getAsString(name).startsWith("Guru_Sample-"))
     }
@@ -176,24 +140,23 @@ class GuruSaveTest {
         val report = host.crashed(a)
         host.app.applicationInfo.nonLocalizedLabel = " "
 
-        holdAndSave()
+        start()
 
         assertEquals(
-            GuruDownloads.baseName(host.app.packageName, report, ZoneId.systemDefault()) + ".zip",
+            GuruDownloads.baseName(host.app.packageName, report, ZoneId.systemDefault()) + ".json",
             media.rows.single().values.getAsString(name),
         )
     }
 
     @Test
-    fun `a refused save keeps the report and offers nothing`() {
+    fun `a refused save keeps the report for the next start`() {
         host.crashed(a)
         media.refuse = setOf(1)
 
-        val chooser = holdAndSave()
+        start()
 
-        assertNull(chooser)
+        assertTrue(media.rows.isEmpty())
         assertEquals(listOf(a), host.store.pending().map { it.id })
-        assertEquals(GuruTexts.English.saved(0, 1), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
@@ -201,7 +164,7 @@ class GuruSaveTest {
         host.crashed(a)
         media.failWrite = true
 
-        holdAndSave()
+        start()
 
         assertTrue(media.rows.isEmpty())
         assertEquals(listOf(a), host.store.pending().map { it.id })
@@ -212,12 +175,10 @@ class GuruSaveTest {
         host.crashed(a)
         media.refuseUpdate = true
 
-        val chooser = holdAndSave()
+        start()
 
-        assertNull(chooser)
         assertTrue(media.rows.isEmpty())
         assertEquals(listOf(a), host.store.pending().map { it.id })
-        assertEquals(GuruTexts.English.saved(0, 1), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
@@ -225,119 +186,114 @@ class GuruSaveTest {
         val (older, newer) = twoReports()
         media.throwOn = setOf(1)
 
-        holdAndSave()
+        start()
 
-        assertEquals(listOf(older.id), media.rows.map { JSONObject(unzip(it).second).getString("REPORT_ID") })
+        assertEquals(listOf(older.id), media.rows.map { it.json().getString("REPORT_ID") })
         assertEquals(listOf(newer.id), host.store.pending().map { it.id })
-        assertEquals(GuruTexts.English.saved(1, 2), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
-    fun `an unfinished file that cannot be removed still keeps the report`() {
-        host.crashed(a)
-        media.failWrite = true
+    fun `an unfinished file that cannot be removed keeps that report and stops no other`() {
+        val (older, newer) = twoReports()
+        media.failWriteOn = setOf(1L)
         media.throwOnDelete = true
 
-        holdAndSave()
+        start()
 
-        assertEquals(listOf(a), host.store.pending().map { it.id })
-        assertEquals(GuruTexts.English.saved(0, 1), ShadowToast.getTextOfLatestToast())
-    }
-
-    @Test
-    fun `only the reports saved go - the subject names one of them`() {
-        val (older, newer) = twoReports()
-        media.refuse = setOf(1)
-
-        val chooser = holdAndSave()!!
-
+        assertEquals(listOf(older.id), media.rows.filter { it.values.getAsInteger(MediaStore.MediaColumns.IS_PENDING) == 0 }
+            .map { it.json().getString("REPORT_ID") })
         assertEquals(listOf(newer.id), host.store.pending().map { it.id })
-        assertEquals(GuruTexts.English.saved(1, 2), ShadowToast.getTextOfLatestToast())
-        assertEquals(Intent.ACTION_SEND, chooser.offered().action)
-        assertEquals(GuruText.subject(older), chooser.offered().getStringExtra(Intent.EXTRA_SUBJECT))
+        assertEquals(1, alertCount())
     }
 
     @Test
-    fun `the chooser offers the saved file with read access, in a task of its own`() {
-        val report = host.crashed(a)
-
-        val chooser = holdAndSave()!!
-
-        assertEquals(Intent.ACTION_CHOOSER, chooser.action)
-        assertTrue(chooser.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
-        val send = chooser.offered()
-        val file = media.rows.single().uri
-        assertEquals(Intent.ACTION_SEND, send.action)
-        assertEquals("application/zip", send.type)
-        assertEquals(file, send.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java))
-        assertEquals(listOf(file), send.clipUris())
-        assertTrue(send.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
-        assertEquals(0, send.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-        assertEquals(GuruText.subject(report), send.getStringExtra(Intent.EXTRA_SUBJECT))
-    }
-
-    @Test
-    fun `the chooser itself may read the files - for its preview`() {
+    fun `a refused save comes again on the next start`() {
         host.crashed(a)
+        media.refuse = setOf(1)
+        start()
 
-        val chooser = holdAndSave()!!
+        start()
 
-        assertEquals(listOf(media.rows.single().uri), chooser.clipUris())
-        assertTrue(chooser.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
-    }
-
-    @Test
-    fun `several files are offered together`() {
-        val (_, newer) = twoReports()
-
-        val chooser = holdAndSave()!!
-        val send = chooser.offered()
-
-        val files = media.rows.map { it.uri }
-        assertEquals(Intent.ACTION_SEND_MULTIPLE, send.action)
-        assertEquals(files, send.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java))
-        assertEquals(files, send.clipUris())
-        assertEquals(files, chooser.clipUris())
-        assertTrue(send.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)
-        assertEquals(GuruText.subject(newer), send.getStringExtra(Intent.EXTRA_SUBJECT))
-    }
-
-    @Test
-    fun `a chooser that cannot start costs nothing - the file is saved`() {
-        host.crashed(a)
-        val refusing = Robolectric.buildActivity(RefusingActivity::class.java).setup().get()
-
-        holdAndSave(refusing)
-
-        assertEquals(1, media.rows.size)
+        assertEquals(listOf(a), media.rows.map { it.json().getString("REPORT_ID") })
         assertTrue(host.store.pending().isEmpty())
-        assertEquals(GuruTexts.English.saved(1, 1), ShadowToast.getTextOfLatestToast())
     }
 
     @Test
-    fun `an activity gone before the offer gets no chooser`() {
-        host.crashed(a)
-        val controller = host.activity()
-        hold(controller.get())
+    fun `a crash the handler caught is saved once, though its exit record comes too`() {
+        val caught = host.crashed(a, at = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS)
+        val am = host.app.getSystemService(ActivityManager::class.java)
+        shadowOf(am).addApplicationExitInfo(
+            ApplicationExitInfoBuilder.newBuilder()
+                .setReason(ApplicationExitInfo.REASON_CRASH)
+                .setTimestamp(caught.crashedAt + 500)
+                .setProcessName(host.app.packageName)
+                .build(),
+        )
+        Guru.install(host.app, host.io)
+        host.store.markExitsSeen(System.currentTimeMillis() - 10 * GuruHostRule.MINUTE_MS)
 
         host.runIo()
-        controller.pause().stop().destroy()
-        host.idleMain()
 
-        assertNull(shadowOf(controller.get()).nextStartedActivity)
-        assertEquals(1, media.rows.size)
+        assertEquals(listOf(a), media.rows.map { it.json().getString("REPORT_ID") })
+        assertTrue(host.store.pending().isEmpty())
+    }
+
+    // ---- pruning ------------------------------------------------------------------
+
+    @Test
+    fun `only the newest 32 of Guru's own files stay`() {
+        val old = (1..GuruDownloads.KEEP).map { media.published("Download/Guru/") }
+        host.crashed(a)
+
+        start()
+
+        assertEquals(GuruDownloads.KEEP, ours().size)
+        assertEquals(old.drop(1).map { it.id } + media.rows.last().id, ours().map { it.id })
     }
 
     @Test
-    fun `an activity finishing before the offer gets no chooser`() {
+    fun `files not ours, or elsewhere, are never pruned`() {
+        val foreign = (1..GuruDownloads.KEEP + 2).map { media.published("Download/Guru/", owner = "com.example.other") }
+        val elsewhere = (1..GuruDownloads.KEEP + 2).map { media.published("Download/Other/") }
         host.crashed(a)
-        val activity = hold()
 
-        host.runIo()
-        activity.finish()
-        host.idleMain()
+        start()
 
-        assertNull(shadowOf(activity).nextStartedActivity)
-        assertEquals(1, media.rows.size)
+        assertTrue(media.rows.containsAll(foreign + elsewhere))
+    }
+
+    @Test
+    fun `nothing saved prunes nothing`() {
+        repeat(GuruDownloads.KEEP + 1) { media.published("Download/Guru/") }
+
+        start()
+
+        assertEquals(GuruDownloads.KEEP + 1, ours().size)
+    }
+
+    @Test
+    fun `a listing that fails prunes nothing and keeps the save`() {
+        repeat(GuruDownloads.KEEP) { media.published("Download/Guru/") }
+        host.crashed(a)
+        media.throwOnQuery = true
+
+        start()
+
+        assertEquals(GuruDownloads.KEEP + 1, ours().size)
+        assertTrue(host.store.pending().isEmpty())
+        assertEquals(1, alertCount())
+    }
+
+    @Test
+    fun `an old file that cannot be pruned stops nothing`() {
+        repeat(GuruDownloads.KEEP) { media.published("Download/Guru/") }
+        val (older, newer) = twoReports()
+        media.throwOnDelete = true
+
+        start()
+
+        assertEquals(listOf(newer.id, older.id), ours().takeLast(2).map { it.json().getString("REPORT_ID") })
+        assertTrue(host.store.pending().isEmpty())
+        assertEquals(2, alertCount())
     }
 }

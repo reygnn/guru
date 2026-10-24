@@ -42,18 +42,19 @@ class GuruTextTest {
     @Test
     fun `one report is the three alert lines`() {
         assertEquals(
-            listOf("Software Failure.", "Press left mouse button to continue.", "Guru Meditation #80000001.0000002A"),
-            GuruText.screenLines("#80000001.0000002A", pending = 1, GuruTexts.English),
+            listOf("Software Failure.", "Press left mouse button to continue.", "Guru Meditation #80000001.0000002A",
+                "saved to Download/Guru"),
+            GuruText.screenLines("#80000001.0000002A", saved = 1, GuruTexts.English),
         )
     }
 
     @Test
-    fun `more reports add the host's word for how many more`() {
-        val counted = object : GuruTexts by GuruTexts.English {
-            override fun more(count: Int) = "noch $count"
+    fun `the last line is the host's word for what was saved`() {
+        val counted = object : GuruTexts {
+            override fun saved(count: Int) = "$count gesichert"
         }
-        assertEquals("noch 2", GuruText.screenLines("#1", pending = 3, counted).last())
-        assertEquals(3, GuruText.screenLines("#1", pending = 1, counted).size)
+        assertEquals("3 gesichert", GuruText.screenLines("#1", saved = 3, counted).last())
+        assertEquals("1 gesichert", GuruText.screenLines("#1", saved = 1, counted).last())
     }
 
     @Test

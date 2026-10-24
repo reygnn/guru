@@ -1,7 +1,6 @@
 package com.github.reygnn.guru
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -9,9 +8,8 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Locale
-import java.util.zip.ZipInputStream
 
-/** The file name and the ZIP's bytes; saving through MediaStore is GuruSaveTest's. */
+/** The file name; saving through MediaStore is GuruSaveTest's. */
 class GuruDownloadsTest {
 
     @get:Rule val locales = GuruLocaleRule()
@@ -69,20 +67,5 @@ class GuruDownloadsTest {
     fun `digits stay ASCII under any locale`() {
         Locale.setDefault(Locale.forLanguageTag("ar-EG-u-nu-arab"))
         assertEquals("Verso-0.3.1-2026-10-24_14-03-12", GuruDownloads.baseName("Verso", crash, utc))
-    }
-
-    @Test
-    fun `the ZIP holds one entry - the JSON byte for byte, dated`() {
-        val json = """{"STACK_TRACE":"Grüße 😀"}"""
-
-        val bytes = GuruDownloads.zip("Verso-0.3.1-2026-10-24_14-03-12", json, at)
-
-        ZipInputStream(bytes.inputStream()).use { zip ->
-            val entry = zip.nextEntry!!
-            assertEquals("Verso-0.3.1-2026-10-24_14-03-12.json", entry.name)
-            assertEquals(at / 2000, entry.time / 2000)
-            assertEquals(json, zip.readBytes().toString(Charsets.UTF_8))
-            assertNull(zip.nextEntry)
-        }
     }
 }

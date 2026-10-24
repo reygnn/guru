@@ -10,7 +10,7 @@ plugins {
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
-    source.setFrom("src/main/kotlin", "src/test/java")
+    source.setFrom("src/main/kotlin", "src/test/java", "src/androidTest/java")
 }
 
 android {
@@ -19,6 +19,8 @@ android {
 
     defaultConfig {
         minSdk = 36                 // Android 16 only — no compat shims
+        // The on-device tests (connectedAndroidTest): real MediaStore, see GuruDownloadsInstrumentedTest.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // Java 21 end to end.
@@ -72,4 +74,8 @@ dependencies {
     // Real org.json for reading the ACRA JSON back (the library Acrarium parses it with).
     testImplementation(libs.json)
     testImplementation(libs.robolectric)
+    // On-device tests — test APK only, never in a host.
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }

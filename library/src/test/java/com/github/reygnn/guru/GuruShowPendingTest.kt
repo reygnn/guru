@@ -8,12 +8,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowDialog
 
+/** The alert: only what this start saved, once; it decides nothing. */
 @RunWith(RobolectricTestRunner::class)
 class GuruShowPendingTest {
 
@@ -22,6 +25,14 @@ class GuruShowPendingTest {
     private val a = "0b6c2f8e-1d2a-4c3b-9e8f-00000000000a"
     private val b = "0b6c2f8e-1d2a-4c3b-9e8f-00000000000b"
 
+    private lateinit var media: FakeMediaStore
+
+    @Before
+    fun setUp() {
+        media = FakeMediaStore.install()
+    }
+
+    /** install, the exit history marked; its io steps still queued. */
     private fun installed() {
         Guru.install(host.app, host.io)
         host.store.markExitsSeen(System.currentTimeMillis() - GuruHostRule.MINUTE_MS)
@@ -29,15 +40,15 @@ class GuruShowPendingTest {
 
     private fun Dialog.guruView(): View = (findViewById<ViewGroup>(android.R.id.content)).getChildAt(0)
 
-    private fun pressBack(dialog: Dialog) {
-        host.idleMain()
-        dialog.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK))
-        dialog.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK))
-        host.idleMain()
+    private fun shown(): Dialog {
+        installed()
+        Guru.showPending(host.activity().get()) { it() }
+        host.runIo()
+        return ShadowDialog.getLatestDialog()
     }
 
     @Test
-    fun `nothing pending shows nothing`() {
+    fun `nothing saved shows nothing`() {
         installed()
         Guru.showPending(host.activity().get()) { it() }
         host.runIo()
@@ -46,14 +57,28 @@ class GuruShowPendingTest {
     }
 
     @Test
-    fun `the alert comes after the exit look, on the host's main`() {
+    fun `a report not saved is not shown - it waits for the next start`() {
+        host.crashed(a)
+        media.refuse = setOf(1)
+        installed()
+        Guru.showPending(host.activity().get()) { it() }
+
+        host.runIo()
+
+        assertNull(ShadowDialog.getLatestDialog())
+        assertEquals(listOf(a), host.store.pending().map { it.id })
+    }
+
+    @Test
+    fun `the alert comes after the save, on the host's main`() {
         host.crashed(a)
         installed()
         val onUi = mutableListOf<() -> Unit>()
         Guru.showPending(host.activity().get()) { onUi += it }
 
-        assertEquals(2, host.queuedIo())
+        assertEquals(3, host.queuedIo())
         host.runIo()
+        assertEquals(1, media.rows.size)
         assertNull(ShadowDialog.getLatestDialog())
 
         onUi.single()()
@@ -61,48 +86,72 @@ class GuruShowPendingTest {
     }
 
     @Test
-    fun `the alert shows the newest report's number and how many more`() {
+    fun `the alert shows the newest report's number and how many were saved`() {
         val older = report(id = a, crashedAt = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS,
             trace = "java.lang.IllegalArgumentException: old\n\tat com.example.app.Old.run(Old.kt:1)").also { host.store.write(it) }
         val newest = host.crashed(b)
-        installed()
-        Guru.showPending(host.activity().get()) { it() }
-        host.runIo()
 
-        val said = ShadowDialog.getLatestDialog().guruView().contentDescription.toString()
+        val said = shown().guruView().contentDescription.toString()
+
         assertTrue(older.number != newest.number)
         assertTrue(said, said.contains("Guru Meditation ${newest.number}"))
         assertFalse(said, said.contains(older.number))
-        assertTrue(said, said.contains("+1 more"))
+        assertTrue(said, said.contains(GuruTexts.English.saved(2)))
     }
 
     @Test
-    fun `a tap removes the reports, after the io step`() {
+    fun `the alert comes once - a second call shows nothing`() {
         host.crashed(a)
-        installed()
+        shown().dismiss()
+
         Guru.showPending(host.activity().get()) { it() }
         host.runIo()
-        val dialog = ShadowDialog.getLatestDialog()
+
+        assertFalse(ShadowDialog.getLatestDialog().isShowing)
+        assertEquals(1, ShadowDialog.getShownDialogs().size)
+    }
+
+    @Test
+    fun `a double-tap closes it, and that is all`() {
+        host.crashed(a)
+        val dialog = shown()
 
         dialog.guruView().performClick()
 
         assertFalse(dialog.isShowing)
-        assertEquals(listOf(a), host.store.pending().map { it.id })
-        host.runIo()
-        assertTrue(host.store.pending().isEmpty())
+        assertEquals(0, host.queuedIo())
+        assertEquals(1, media.rows.size)
+        assertNull(shadowOf(host.activity().get()).nextStartedActivity)
     }
 
     @Test
-    fun `a tap removes every report on screen`() {
-        host.crashed(a, at = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS)
-        host.crashed(b)
+    fun `Back closes it`() {
+        host.crashed(a)
+        val dialog = shown()
+
+        host.idleMain()
+        dialog.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK))
+        dialog.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK))
+        host.idleMain()
+
+        assertFalse(dialog.isShowing)
+        assertEquals(0, host.queuedIo())
+    }
+
+    @Test
+    fun `a destroyed activity gets no alert, the file is saved anyway`() {
+        host.crashed(a)
         installed()
-        Guru.showPending(host.activity().get()) { it() }
+        val controller = host.activity()
+        val onUi = mutableListOf<() -> Unit>()
+        Guru.showPending(controller.get()) { onUi += it }
         host.runIo()
 
-        ShadowDialog.getLatestDialog().guruView().performClick()
-        host.runIo()
+        controller.pause().stop().destroy()
+        onUi.single()()
 
+        assertNull(ShadowDialog.getLatestDialog())
+        assertEquals(1, media.rows.size)
         assertTrue(host.store.pending().isEmpty())
     }
 
@@ -122,47 +171,13 @@ class GuruShowPendingTest {
     }
 
     @Test
-    fun `a tap removes only the reports on screen`() {
+    fun `a start without any alert still saves`() {
         host.crashed(a)
+
         installed()
-        Guru.showPending(host.activity().get()) { it() }
-        host.runIo()
-        host.crashed(b)
-
-        ShadowDialog.getLatestDialog().guruView().performClick()
         host.runIo()
 
-        assertEquals(listOf(b), host.store.pending().map { it.id })
-    }
-
-    @Test
-    fun `Back leaves everything for the next start`() {
-        host.crashed(a)
-        installed()
-        Guru.showPending(host.activity().get()) { it() }
-        host.runIo()
-        val dialog = ShadowDialog.getLatestDialog()
-
-        pressBack(dialog)
-
-        assertFalse(dialog.isShowing)
-        assertEquals(0, host.queuedIo())
-        assertEquals(listOf(a), host.store.pending().map { it.id })
-    }
-
-    @Test
-    fun `a destroyed activity gets no alert`() {
-        host.crashed(a)
-        installed()
-        val controller = host.activity()
-        val onUi = mutableListOf<() -> Unit>()
-        Guru.showPending(controller.get()) { onUi += it }
-        host.runIo()
-
-        controller.pause().stop().destroy()
-        onUi.single()()
-
-        assertNull(ShadowDialog.getLatestDialog())
-        assertEquals(listOf(a), host.store.pending().map { it.id })
+        assertEquals(1, media.rows.size)
+        assertTrue(host.store.pending().isEmpty())
     }
 }

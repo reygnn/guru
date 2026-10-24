@@ -45,14 +45,16 @@ The host interface is `Guru.install`, `Guru.showPending` and `GuruTexts`.
    field is a break (major version).
 6. **Write first, then move `exits-seen`.** A death in between repeats an exit, it never
    loses one.
-7. **Delete only what is gone:** on "continue", and once a report's ZIP is saved in
-   `Download/Guru` (`IS_PENDING` cleared) — from then on the file is the user's. The
-   chooser that follows only offers the files; nothing there decides about a report.
+7. **Save first, then tell; delete only what is saved.** At every start, before any alert,
+   each report goes to `Download/Guru` as a `.json`; Guru's copy goes once the file is
+   saved (`IS_PENDING` cleared), and from then on the file is the user's. The alert only
+   tells, once, and decides nothing; nothing waits on the user. Of its own files there Guru
+   keeps the newest 32 and never touches anyone else's.
 8. **No manifest, no resources, everything `internal`.** Texts come from the host via
    `GuruTexts`; only the Amiga lines stay fixed English.
 9. **No code for a particular host.** What only Verso needs belongs in Verso (like
    `VersoGuruTexts`).
-10. **The ACRA fields are a contract** — the JSON in each ZIP — with the family's own
+10. **The ACRA fields are a contract** — the JSON in each file — with the family's own
     ACRA backend ([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend)): `PACKAGE_NAME` and `STACK_TRACE` are required; it groups
     every Guru report by `PACKAGE_NAME` + the exception class of the trace's first line +
     `CUSTOM_DATA.GURU_MEDITATION`, and counts a `REPORT_ID` once. So the trace's first
@@ -100,6 +102,7 @@ in `CHANGELOG.md`, newest first.
   `git subtree pull --prefix=guru https://github.com/reygnn/guru <tag> --squash`; the
   host's commit message names the tag.
 
-Before every tag: the device test on the A17 (`README.md`, "Tests"). It runs on the
+Before every tag: the device test on the A17 (`README.md`, "Tests"), including the
+on-device MediaStore tests (`ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`). It runs on the
 sample's **debug** build — the only one with the ANR button — installed over USB with
 `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :sample:installDebug`, not via `install-aab-a17.sh`.

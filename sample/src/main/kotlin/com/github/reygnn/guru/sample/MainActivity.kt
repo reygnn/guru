@@ -12,7 +12,7 @@ import com.github.reygnn.guru.Guru
 
 /**
  * Two buttons to die by: a crash on the main thread, and — debug builds only — an ANR. On the
- * next start Guru shows what it caught.
+ * next start Guru saves what it caught to Download/Guru and says so.
  */
 class MainActivity : Activity() {
 

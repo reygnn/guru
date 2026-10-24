@@ -5,38 +5,42 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 
 ## Unreleased
 
-**2.0.0 — breaking.** Guru saves instead of sending.
+**2.0.0 — breaking.** Save first, then tell.
 
-- A hold saves each report as a ZIP of its own in `Download/Guru/` (MediaStore, no
-  permission), named after app, version and crash time
-  (`Verso-0.3.1-2026-10-24_14-03-12.zip`), one entry inside: the ACRA JSON, unchanged.
-  Guru's copy goes as soon as the file is saved; one that cannot be saved stays.
-- Each ZIP is synced before Guru's copy goes; label and version in the name are cut so the
-  name stays under 255 bytes.
-- Then the chooser offers the saved files (`EXTRA_STREAM` and ClipData, read access for the
-  chooser and the app picked, `FLAG_ACTIVITY_NEW_TASK`). Only URIs travel, so the Binder
-  limit is gone, and nothing in the chooser decides about a report: `ChooserResult`, the
-  mutable `PendingIntent` and the receiver are gone with it.
-- **Removed:** `GuruSink` (`Share` and `Acra`) and `AcraPost` — Guru has no network code.
-  `Guru.install(app, io, texts)` loses its `sink` parameter.
-- **`GuruTexts`:** `actionSend` → `actionSave`, `sent(sent, total)` → `saved(saved, total)`;
-  the hint reads "double-tap: continue · hold: save · back: later". Every member now has its
-  English text as the default in the interface; `GuruTexts.English` overrides nothing.
-- Reports now sit in shared storage after a hold — README, "Privacy".
-- 139 tests.
+- At every start, before anything is shown, each pending report is saved as a `.json` file
+  of its own in `Download/Guru/` (MediaStore, no permission), named after app, version and
+  crash time (`Verso-0.3.1-2026-10-24_14-03-12.json`): the ACRA JSON, unchanged. The file is
+  synced and shown only once complete; Guru's copy goes once it is saved, one that cannot be
+  saved stays. Of its own files there Guru keeps the newest 32; no one else's are touched.
+- The alert only tells: the newest number and how many were saved, once. Hold shares the
+  saved files (`EXTRA_STREAM` and ClipData, read access for the chooser and the app picked,
+  `FLAG_ACTIVITY_NEW_TASK`); double-tap or Back closes. Nothing waits on the user: an app that
+  dies before its alert keeps its reports in `Download/Guru/`, and an alert that dies itself
+  leaves nothing open to loop on (audit 2026-10-23 #4, #21). There is no "discard" any more —
+  delete the file.
+- **Removed:** `GuruSink` (`Share` and `Acra`), `AcraPost` and the receiver with its
+  `PendingIntent` and `ChooserResult` — Guru has no network code. `Guru.install(app, io,
+  texts)` loses its `sink` parameter.
+- **`GuruTexts`:** now `hint`, `actionClose`, `actionShare` and `saved(count)`; `actionContinue`,
+  `actionSend`, `more` and `sent` are gone. Every member has its English text as the default in
+  the interface; `GuruTexts.English` overrides nothing.
+- Reports sit in shared storage from the next start on — README, "Privacy".
+- 141 tests; on-device MediaStore tests (`:library:connectedAndroidTest`, 4).
 
 **Host migration** (what a host changes when it pulls 2.0.0):
 
 1. `Guru.install(app, GuruSink.Share(), io = …, texts = …)` → `Guru.install(app, io = …,
    texts = …)`; drop the `GuruSink` import.
-2. In the host's `GuruTexts`: `actionSend` → `actionSave`, `sent` → `saved` — and **rewrite
-   the strings**, their meaning changed: "saved to Download/Guru", not "sent". Update the
-   **hint** too ("hold: save"); it compiles unchanged and would still say "send".
+2. Rewrite the host's `GuruTexts`: `hint` ("double-tap: close · hold: share"), `actionClose`,
+   `actionShare`, `saved(count)` ("saved to Download/Guru"); drop `actionContinue`/`actionSend`,
+   `more` and `sent` with their strings. The hint compiles unchanged and would still say
+   "continue · send · later".
 3. Don't fix the compile errors by deleting the overrides: every member has an English
    default now, so a deleted one silently turns English.
 4. Tests that pin the install line (Verso's `SourceGuardTest`) need the new one.
 5. INTERNET: drop it if it was only there for `GuruSink.Acra`.
-6. Say in the host's caveats that reports land in `Download/Guru` (README, "Privacy").
+6. Say in the host's caveats that reports land in `Download/Guru` without asking (README,
+   "Privacy").
 
 Earlier on `main`, before 2.0.0 (never tagged as 1.0.2). The two share fixes are
 superseded by 2.0.0, which removes the text share; the ANR-dump fix stays:

@@ -5,18 +5,23 @@
 │              Software Failure.               │
 │     Press left mouse button to continue.     │
 │      Guru Meditation #80000001.4A3F21C0      │
+│            saved to Download/Guru            │
 └──────────────────────────────────────────────┘
-       double-tap: continue · hold: save · back: later   ← the host's words
+          double-tap: close · hold: share        ← the host's words
 ```
 
 A crash reporter for Android, vendored as source: no dependency, no permission, no
-thread of its own. A crash is written to disk before the process dies; on the next
-start the app shows the Amiga alert — black, red, the border blinking — and the user
-decides: **double-tap** (left button) continues and discards, **hold** (right button)
-saves the reports as ZIP files to `Download/Guru/` and offers them to share, **Back** leaves
-them for the next start.
+thread of its own. A crash is written to disk before the process dies. On the next start,
+before anything is shown, Guru saves every report as a `.json` file in `Download/Guru/`;
+then the app shows the Amiga alert — black, red, the border blinking — to say so, once.
+**Hold** (right button) shares the saved files, **double-tap** (left button) or **Back**
+closes the alert. It decides nothing: the reports are saved already.
 A single tap or a swipe does nothing: a finger laid on a dimmed screen to wake it must not
-discard a report. Moving past the touch slop cancels a double-tap and a hold alike.
+close the alert unread. Moving past the touch slop cancels a double-tap and a hold alike.
+
+**Save first, then tell.** Nothing waits on the user, so nothing is lost when no one
+answers: an app that dies before its alert still has its reports in `Download/Guru/`, and
+an alert that dies itself leaves nothing open that would bring it back.
 
 Platform APIs and the Kotlin stdlib only, minSdk 36 like the rest of the family.
 
@@ -49,46 +54,51 @@ thread's first three frames.
 ## On disk
 
 `filesDir/guru/`: one `guru-<time>-<id>.txt` per report (`key=value`, readable with
-`adb`), written atomically (`.new` + fsync → rename → fsync dir). At most 8, the newest.
-A crash loop cannot fill the disk. Beside them: `installation-id` and `exits-seen`.
+`adb`), written atomically (`.new` + fsync → rename → fsync dir) — only until the next
+start saves it to `Download/Guru/`. At most 8, the newest. A crash loop cannot fill the
+disk. Beside them: `installation-id` and `exits-seen`.
 
 ## Saving
 
-A hold saves every report on screen as a ZIP of its own through `MediaStore.Downloads`, in
-`Download/Guru/`: no permission, no manifest entry. One entry per ZIP, the report's ACRA
-JSON, unchanged. The file is named after the app, its version and the crash time in local
-time — `Verso-0.3.1-2026-10-24_14-03-12.zip`, the entry `….json`. A character a file name
-should not carry becomes `_`; the name is cut to 40 chars and the version to 24, so it stays
-under 255 bytes. MediaStore adds ` (1)` to a second file of the same second.
+At every start, in its second step on the host's `io` (after the look at the exit
+records), Guru saves each pending report as a file of its own through
+`MediaStore.Downloads`, in `Download/Guru/`: no permission, no manifest entry. The file is
+the report's ACRA JSON, unchanged, named after the app, its version and the crash time in
+local time — `Verso-0.3.1-2026-10-24_14-03-12.json`. A character a file name should not
+carry becomes `_`; the name is cut to 40 chars and the version to 24, so it stays under
+255 bytes. MediaStore adds ` (1)` to a name already taken.
 
-Each file shows only once complete and synced (`IS_PENDING`, `fsync`). Once it is saved, the
-file is the user's and Guru removes its own copy, report by report. A report whose file
-cannot be saved stays for the next start; the toast says how many of how many were saved. A
-death between saving and removing repeats that one report as a second ZIP with the same
-`REPORT_ID`, which the backend counts once.
+Each file shows only once complete and synced (`IS_PENDING`, `fsync`). Once it is saved,
+the file is the user's and Guru removes its own copy, report by report. A report whose file
+cannot be saved stays for the next start. A death between saving and removing repeats that
+one report as a second file with the same `REPORT_ID`, which the backend counts once.
 
-Then Guru offers the saved files in the share chooser — `ACTION_SEND`, or
-`ACTION_SEND_MULTIPLE` for several, read access for the chooser (its preview) and the app
-picked, in a task of its own. Only the files' URIs travel, so there is no size limit. What
-happens in the chooser no longer matters: picked, copied or cancelled, the files are in
-`Download/Guru/` already. The save waits its turn on the host's `io`, so the chooser can come
-a moment after the hold; if the activity is gone by then (rotation, language change), only
-the toast comes.
+Of its own files in `Download/Guru/`, Guru keeps the newest 32 and removes the rest after
+saving, so a crash loop cannot fill the folder. Only files this app made are ever listed or
+removed: files the user put there, another app's, or an earlier install's are not touched.
 
-**Privacy.** Every hold puts the reports into shared storage, even if the chooser is
-cancelled: the full trace (exception messages can carry names, paths, other apps' package
-names), an ANR's dump of every thread (up to 256 KB), the device's brand, model and Android
-version, and the installation's lasting `INSTALLATION_ID`. The user sees only the number
-before saving. The files outlive an uninstall; Guru never reads or removes them again, and
-after a reinstall it could not. A file manager, a PC over USB, an app with access to all
-files or a sync tool can read them, and every host with Guru shares the one `Download/Guru/`.
+**The alert** then names the newest report's number and how many were saved — only what this
+start saved, and only once: a second `showPending`, or a recreated activity, shows nothing.
+A hold offers the saved files in the share chooser — `ACTION_SEND`, or `ACTION_SEND_MULTIPLE`
+for several, read access for the chooser (its preview) and the app picked, in a task of its
+own. Only the files' URIs travel, so there is no size limit, and nothing in the chooser
+decides about a report. If the activity is gone before the alert comes, there is no alert;
+the files are saved all the same.
 
-To get the reports into the backend, share the ZIPs to guru2acra, or run the backend's
+**Privacy.** Every report goes into shared storage at the next start, without asking: the
+full trace (exception messages can carry names, paths, other apps' package names), an ANR's
+dump of every thread (up to 256 KB), the device's brand, model and Android version, and the
+installation's lasting `INSTALLATION_ID`. The files outlive an uninstall; after a reinstall
+Guru can no longer see or remove them. A file manager, a PC over USB, an app with access to
+all files or a sync tool can read them, and every host with Guru shares the one
+`Download/Guru/`. To be rid of a report, delete its file.
+
+To get the reports into the backend, share the files to guru2acra, or run the backend's
 `tools/import_share.py` on them.
 
 ## The backend contract
 
-The JSON in the ZIP is what the family's own ACRA backend
+The JSON in each file is what the family's own ACRA backend
 ([`reygnn/acra-backend`](https://github.com/reygnn/acra-backend), Flask + MariaDB) takes.
 Checked against its source (2026-10-23):
 
@@ -114,21 +124,20 @@ Guru keeps writing them, so a report also posts to one of those.
 ## Texts
 
 The Amiga lines are a quote and stay English. Everything else a user reads or hears
-comes from the host: the hint under the box, the two TalkBack actions, "+N more", and
-the toast. These are passed as `GuruTexts` from the app's resources:
+comes from the host: the hint under the box, the two TalkBack actions, and the line that
+says where the reports went. These are passed as `GuruTexts` from the app's resources:
 
 ```kotlin
 internal class AppGuruTexts(private val context: Context) : GuruTexts {
     override val hint get() = context.getString(R.string.guru_hint)
-    override val actionContinue get() = context.getString(R.string.guru_action_continue)
-    override val actionSave get() = context.getString(R.string.guru_action_save)
-    override fun more(count: Int) = context.resources.getQuantityString(R.plurals.guru_more, count, count)
-    override fun saved(saved: Int, total: Int) = when { … }
+    override val actionClose get() = context.getString(R.string.guru_action_close)
+    override val actionShare get() = context.getString(R.string.guru_action_share)
+    override fun saved(count: Int) = context.resources.getQuantityString(R.plurals.guru_saved, count, count)
 }
 ```
 
-They are read each time the screen is built or a toast is shown, so a language change in
-between is picked up. Without `texts`: `GuruTexts.English`. Every member has a default (the
+They are read each time the screen is built, so a language change in between is picked
+up. Without `texts`: `GuruTexts.English`. Every member has a default (the
 English one), so a host overrides only what it translates. A translated hint that is
 longer shrinks to the width, like the alert lines.
 
@@ -184,21 +193,28 @@ dialog dismisses itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 139 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 141 tests, JUnit 4, no mocks, each mutation-checked.
 
-- **85 plain JVM tests.** Real files in a `TemporaryFolder`, the ZIP read back with
-  `ZipInputStream`, and the real desktop `org.json` for parsing the JSON back (the library
-  Acrarium reads it with).
-- **54 Robolectric tests** for what the JVM alone cannot reach:
+- **81 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
+  `org.json` for parsing the JSON back (the library Acrarium reads it with).
+- **60 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, no receiver.
   - Exit records via `ShadowActivityManager`, an unreadable ANR dump too.
-  - `showPending`: tap, Back, a destroyed activity.
-  - Saving through a fake MediaStore provider: one ZIP per report in `Download/Guru`,
-    hidden until complete, removed once saved; a refused, failed or throwing save keeps
-    that report; the chooser offers the files with read access in a task of its own, and
-    one that cannot start costs nothing.
-  - `GuruScreen`: continue and save act once, TalkBack labels, closing with the activity.
-  - Touch: a double-tap continues, a still hold saves; a single tap or a swipe does nothing.
+  - Saving at the start through a fake MediaStore provider: one file per report in
+    `Download/Guru`, hidden until complete, removed from Guru's store once saved; a refused,
+    failed or throwing save keeps that report; the newest 32 of Guru's own files stay, no
+    one else's are touched.
+  - The alert: once, only what this start saved, the newest number; closing decides
+    nothing; a destroyed activity gets none, the files are saved anyway.
+  - Sharing: the chooser offers the files with read access in a task of its own; one that
+    cannot start costs nothing.
+  - `GuruScreen`: share acts once, TalkBack labels, closing with the activity.
+  - Touch: a double-tap closes, a still hold shares; a single tap or a swipe does nothing.
+
+`library/src/androidTest/java`: `GuruDownloadsInstrumentedTest` (4), on a device — what
+MediaStore really does: the file under its name and readable back, ` (1)` for a name taken
+(ours or someone else's), pruning that keeps the newest own files and never touches a file
+the shell made. Run it with `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`.
 
 **On the device**, before every tag, with `sample/` — a tiny host that takes Guru as
 source, like Verso. Its debug build has an ANR button and keeps the plain application
@@ -206,16 +222,18 @@ id, so install it with
 `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :sample:installDebug`:
 
 1. `adb shell am crash com.github.reygnn.guru.sample`, start the app: the alert shows
-   `#80000001`.
-2. Hold: the toast names `Download/Guru`, the chooser offers one ZIP and shows its name
-   (the chooser's own read access). Cancel it, restart:
-   no alert; the file is in `Download/Guru/` (Files app), named
-   `Guru_Sample-<version>-<time>.zip` (`Guru-Beispiel-…` in German), the JSON inside.
-3. Crash twice, start, hold: two ZIPs offered together; pick guru2acra (or mail), it
-   receives both.
-4. Press "ANR" and touch the screen until the system kills the app, restart:
-   `#80000002`, the thread dump in the report.
-5. TalkBack in German: the hint and both actions are read in German.
+   `#80000001` and "saved to Download/Guru". The Files app shows
+   `Download/Guru/Guru_Sample-<version>-<time>.json` (`Guru-Beispiel-…` in German).
+2. Hold: the chooser offers the file and shows its name (the chooser's own read access).
+   Cancel it. Double-tap: the alert closes. Restart: no alert; the file is still there.
+3. Crash twice, start: "2 reports saved"; hold: both files offered together; pick
+   guru2acra (or mail), it receives both.
+4. Crash, then crash again right at the start before the alert shows (or press Back at
+   once and `am crash` again): the files are in `Download/Guru/` all the same.
+5. Press "ANR" and touch the screen until the system kills the app, restart:
+   `#80000002`, the thread dump in the file.
+6. TalkBack in German: the hint and both actions are read in German.
+7. `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`: green.
 
 ## Verified
 

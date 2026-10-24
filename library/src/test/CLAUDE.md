@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 139 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 141 tests):
 
 ```
 GuruStoreTest       16  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -24,48 +24,58 @@ ReportCodecTest     10  key=value round-trip (a hostile trace too); an unknown k
                         Guru skipped; missing field, bad value, bad escape or a cut-off file
                         is no report
 GuruTextTest         8  cap and readCapped at their limit (surrogate pairs whole), the alert
-                        lines, "+N more", the share's subject
+                        lines with the host's "saved" line, the share's subject
 AcraJsonTest         7  the ACRA fields Acrarium requires, USER_CRASH_DATE's format, read back
                         with the real org.json
 ExitSelectionTest    7  which exit records become reports: the first look only sets the
                         mark, oldest first, a Java crash the handler caught not twice, an ANR
                         beside it still reported, the mark moved even past a dropped crash
-GuruDownloadsTest    8  the ZIP's name (app, version, local crash time; unsafe characters to
-                        `_`, dashes kept, empty parts left out, ASCII digits in any locale,
-                        the calendar year, label and version cut under 255 bytes) and its one
-                        entry, the JSON byte for byte
+GuruDownloadsTest    7  the file's name: app, version, local crash time; unsafe characters
+                        to `_`, dashes kept, empty parts left out, ASCII digits in any locale,
+                        the calendar year, label and version cut under 255 bytes
 GuruProcessTest      6  building a report from a crash (trace capped) or an exit record; the
                         kind codes are fixed
-GuruTextsTest        6  GuruTexts.English: the toast after saving, "+N more", both gestures
-                        named; a host's texts that override nothing are English
 GuruHandlerTest      5  one capture per process, a failing capture swallowed, the previous
                         handler always reached with the original throwable
-GuruSaveTest        19  Robolectric + FakeMediaStore: the save waits for io; one ZIP per report
-                        in the Downloads collection, Download/Guru (name, MIME), hidden until
-                        all bytes are in; each ZIP its own report's JSON, dated at the crash,
-                        read with ZipFile; removed once saved; named by the app's label, or
-                        the package without one; a refused insert, a failed write, a refused
-                        publish or a throwing provider keeps that report and saves the rest;
-                        the subject names a saved report; the chooser offers one file (SEND)
-                        or several (SEND_MULTIPLE), read access but no write for it and the
-                        app picked, in a new task; one that cannot start, or an activity gone
-                        or finishing before it, costs nothing
-GuruInstallTest     11  Robolectric: a second install keeps one handler; no receiver; exit
-                        records (ShadowActivityManager) — the look waits for io, the first
-                        start only marks, an ANR with its dump, a caught Java crash not
-                        twice, old exits and other reasons stay out, an unreadable dump
-                        (checked or unchecked) still a report and the mark moved, a native
-                        tombstone stays out, an ANR report hides no crash exit
-GuruShowPendingTest  9  Robolectric: nothing pending, nothing shown; the alert after the exit
-                        look and on the host's main; the newest's number and "+N more"; a tap
-                        removes after the io step, every report on screen and only those;
-                        Back keeps all; a destroyed or finishing activity gets no alert
-GuruScreenTest       5  Robolectric: continue and save each act once; TalkBack's action labels
-                        and description from GuruTexts; the alert closes with its activity
-GuruTouchTest       10  Robolectric, real MotionEvents: a double-tap continues, a still hold
-                        saves; a single tap, two slow taps, a swipe, a slide past the slop and
-                        a sliding second tap do nothing; TalkBack's click and long click act
+GuruTextsTest        3  the English defaults; a host overrides only what it translates
+GuruSaveTest        19  Robolectric + FakeMediaStore: saving at the start, after the exit
+                        look on io; one .json per report in the Downloads collection,
+                        Download/Guru (name, MIME), hidden until all bytes are in, its own
+                        report's ACRA JSON; removed from the store once saved; named by the
+                        app's label, or the package without one; a refused insert, a failed
+                        write, a refused publish or a throwing provider keeps that report
+                        and saves the rest, and it comes again next start; a crash the
+                        handler caught saved once; pruning keeps the newest 32 own files,
+                        never another owner's or another folder's, nothing when nothing was
+                        saved, and a failing listing or delete stops no save and no alert
+GuruShowPendingTest 10  Robolectric: the alert only for what this start saved, after the save,
+                        on the host's main; the newest's number and how many; once; a
+                        double-tap or Back only closes; a destroyed or finishing activity
+                        gets none, the files are saved anyway; no alert, still saved
+GuruShareTest        5  Robolectric: a hold offers one file (SEND) or several (SEND_MULTIPLE),
+                        read access but no write for the chooser and the app picked, in a
+                        new task, under the newest's subject; only what was saved; a chooser
+                        that cannot start costs nothing
+GuruInstallTest     11  Robolectric (every save refused, so reports stay readable): a second
+                        install keeps one handler; no receiver; exit records
+                        (ShadowActivityManager) — the look waits for io, the first start only
+                        marks, an ANR with its dump, a caught Java crash not twice, old exits
+                        and other reasons stay out, an unreadable dump (checked or unchecked)
+                        still a report and the mark moved, a native tombstone stays out, an
+                        ANR report hides no crash exit
+GuruScreenTest       5  Robolectric: close shares nothing, share acts once; TalkBack's action
+                        labels and description from GuruTexts; the alert closes with its
+                        activity
+GuruTouchTest       10  Robolectric, real MotionEvents: a double-tap closes, a still hold
+                        shares; a single tap, two slow taps, a swipe, a slide past the slop
+                        and a sliding second tap do nothing; TalkBack's click and long click
+                        act
 ```
+
+On a device (`library/src/androidTest`, `./gradlew :library:connectedAndroidTest`, 4 tests):
+`GuruDownloadsInstrumentedTest` — real MediaStore: the file published under its name and
+readable back, " (1)" for a name taken by ours or the shell's, pruning keeps the newest own
+files and leaves the shell's. The only androidTest set: what Robolectric cannot show.
 
 `sample/src/test`: `SampleGuruTextsTest` (2) — the sample's `GuruTexts` from `values` and
 `values-de`.
@@ -76,8 +86,8 @@ the default handler restored afterwards) and `FakeMediaStore.kt` (a provider und
 `media` authority: rows in memory, bytes in real files, the values as inserted; a refused
 or throwing insert, a refused write or publish, a throwing delete).
 
-Left to the device test (README): the real MediaStore and chooser, a real process death,
-the blink. Not observable here at all: that the ZIP is fsynced.
+Left to the device (README): the real MediaStore (and its on-device tests) and chooser, a
+real process death, the blink. Not observable in any test: that the file is fsynced.
 
 ---
 
@@ -88,8 +98,8 @@ the blink. Not observable here at all: that the ZIP is fsynced.
   test passes a lambda or a fake.
 - **No coroutines**, so no `MainDispatcherRule` / `runTest`. Threading is the host's `io`;
   a test passes a manual queue and decides when it runs.
-- **No mocked filesystem.** Real files in a `TemporaryFolder`, the ZIP's real bytes: what
-  lands on disk is what is tested.
+- **No mocked filesystem.** Real files in a `TemporaryFolder`, the saved file's real bytes:
+  what lands on disk is what is tested.
 
 ---
 

@@ -17,13 +17,13 @@ internal object GuruText {
     /** An ANR dump read from the system: bytes, before decoding. */
     const val MAX_DUMP_BYTES = 256 * 1024
 
-    /** The alert box: the Amiga's one line, folded for a portrait phone; then the host's word for the rest. */
-    fun screenLines(number: String, pending: Int, texts: GuruTexts): List<String> = buildList {
-        add(SOFTWARE_FAILURE)
-        add(PRESS_LEFT)
-        add("Guru Meditation $number")
-        if (pending > 1) add(texts.more(pending - 1))
-    }
+    /** The alert box: the Amiga's one line, folded for a portrait phone; then where the reports went. */
+    fun screenLines(number: String, saved: Int, texts: GuruTexts): List<String> = listOf(
+        SOFTWARE_FAILURE,
+        PRESS_LEFT,
+        "Guru Meditation $number",
+        texts.saved(saved),
+    )
 
     fun subject(report: GuruReport): String =
         "Guru Meditation ${report.number} · ${report.env.packageName} ${report.env.versionName}"

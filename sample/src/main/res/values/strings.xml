@@ -6,20 +6,11 @@
     <string name="sample_anr">ANR (blocks the main thread)</string>
 
     <!-- Guru's words (GuruTexts). The Amiga lines themselves stay English. -->
-    <string name="guru_hint">double-tap: continue · hold: save · back: later</string>
-    <string name="guru_action_continue">continue, discard the report</string>
-    <string name="guru_action_save">save the report to Download/Guru</string>
-    <plurals name="guru_more">
-        <item quantity="one">+%d more</item>
-        <item quantity="other">+%d more</item>
-    </plurals>
-    <plurals name="guru_saved_all">
-        <item quantity="one">Guru: %d report saved to Download/Guru</item>
-        <item quantity="other">Guru: %d reports saved to Download/Guru</item>
-    </plurals>
-    <string name="guru_saved_none">Guru: not saved, kept for the next start</string>
-    <plurals name="guru_saved_some">
-        <item quantity="one">Guru: %1$d of %2$d saved to Download/Guru, the rest kept</item>
-        <item quantity="other">Guru: %1$d of %2$d saved to Download/Guru, the rest kept</item>
+    <string name="guru_hint">double-tap: close · hold: share</string>
+    <string name="guru_action_close">close</string>
+    <string name="guru_action_share">share the report</string>
+    <plurals name="guru_saved">
+        <item quantity="one">saved to Download/Guru</item>
+        <item quantity="other">%d reports saved to Download/Guru</item>
     </plurals>
 </resources>

@@ -5,20 +5,11 @@
     <string name="sample_crash">Absturz</string>
     <string name="sample_anr">ANR (blockiert den Main-Thread)</string>
 
-    <string name="guru_hint">doppeltippen: weiter · halten: speichern · zurück: später</string>
-    <string name="guru_action_continue">weiter, Bericht verwerfen</string>
-    <string name="guru_action_save">Bericht in Download/Guru speichern</string>
-    <plurals name="guru_more">
-        <item quantity="one">+%d weiterer</item>
-        <item quantity="other">+%d weitere</item>
-    </plurals>
-    <plurals name="guru_saved_all">
-        <item quantity="one">Guru: %d Bericht in Download/Guru gespeichert</item>
-        <item quantity="other">Guru: %d Berichte in Download/Guru gespeichert</item>
-    </plurals>
-    <string name="guru_saved_none">Guru: nicht gespeichert, bleibt für den nächsten Start</string>
-    <plurals name="guru_saved_some">
-        <item quantity="one">Guru: %1$d von %2$d in Download/Guru gespeichert, der Rest bleibt</item>
-        <item quantity="other">Guru: %1$d von %2$d in Download/Guru gespeichert, der Rest bleibt</item>
+    <string name="guru_hint">doppeltippen: schließen · halten: teilen</string>
+    <string name="guru_action_close">schließen</string>
+    <string name="guru_action_share">Bericht teilen</string>
+    <plurals name="guru_saved">
+        <item quantity="one">in Download/Guru gespeichert</item>
+        <item quantity="other">%d Berichte in Download/Guru gespeichert</item>
     </plurals>
 </resources>

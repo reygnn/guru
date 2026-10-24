@@ -5,6 +5,7 @@ import android.app.ApplicationExitInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -18,6 +19,13 @@ import java.io.InputStream
 class GuruInstallTest {
 
     @get:Rule val host = GuruHostRule()
+
+    // Every save refused: the reports the exit look writes stay in the store, where these tests
+    // read them. Saving is GuruSaveTest's.
+    @Before
+    fun setUp() {
+        FakeMediaStore.install().refuse = (1..100).toSet()
+    }
 
     private val now get() = System.currentTimeMillis()
 
@@ -72,7 +80,7 @@ class GuruInstallTest {
         exit(ApplicationExitInfo.REASON_ANR, now - 1_000, "Input dispatching timed out")
         Guru.install(host.app, host.io)
 
-        assertEquals(1, host.queuedIo())
+        assertEquals(2, host.queuedIo())
         assertEquals(null, host.store.exitsSeen())
     }
 

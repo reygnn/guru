@@ -13,7 +13,6 @@ import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import android.util.Log
-import android.widget.Toast
 import java.io.File
 import java.io.FileDescriptor
 import java.time.ZoneId
@@ -24,6 +23,10 @@ import java.util.UUID
  * first activity. Guru makes no thread of its own: all disk work goes through the host's `io`,
  * in submission order, and every task is wrapped so that nothing it throws reaches the host's
  * thread.
+ *
+ * Save first, then tell: at every start the reports go to Download/Guru before anything is
+ * shown. The alert only says what this start saved, once; nothing waits on the user, so an app
+ * that dies before its alert, or an alert that dies itself, loses nothing and loops nowhere.
  */
 internal object Guru {
 
@@ -37,27 +40,31 @@ internal object Guru {
         val process: GuruProcess,
         val texts: GuruTexts,
         val io: (Runnable) -> Unit,
-        /** The app's name for the ZIP files, read once at install. */
+        val downloads: GuruDownloads,
+        /** The app's name for the files, read once at install. */
         val label: String,
     ) {
-        fun toast(text: String) = context.mainExecutor.execute { Toast.makeText(context, text, Toast.LENGTH_LONG).show() }
+        /** What this start saved, for the alert: set and taken on the IO thread only. */
+        var saved: List<Saved> = emptyList()
     }
 
-    /** The reports on screen, their ACRA JSON already built on the IO thread. */
-    private class Pending(val reports: List<GuruReport>, val json: Map<String, String>)
+    /** A report saved, and where. */
+    private class Saved(val report: GuruReport, val file: Uri)
 
     // Replaced by a second install (a Robolectric test gets a new Application per test); the
     // handler reads it at crash time, so it always writes to the current one.
     @Volatile private var setup: Setup? = null
 
     /**
-     * Installs the handler and queues the look at the system's exit records on [io]. The
-     * process start is taken as now. Installing twice keeps one handler. [texts]: the host's
-     * words, from its resources; English when it has none.
+     * Installs the handler and queues two steps on [io]: the look at the system's exit records,
+     * then saving every pending report to Download/Guru. The process start is taken as now.
+     * Installing twice keeps one handler. [texts]: the host's words, from its resources;
+     * English when it has none.
      */
     fun install(app: Application, io: (Runnable) -> Unit, texts: GuruTexts = GuruTexts.English) {
         val store = GuruStore(File(app.filesDir, DIR), ::log, syncDir = ::fsyncDir)
-        val current = Setup(app, store, GuruProcess(environment(app), System.currentTimeMillis()), texts, io, label(app))
+        val downloads = GuruDownloads(app.contentResolver, ::log, owner = app.packageName)
+        val current = Setup(app, store, GuruProcess(environment(app), System.currentTimeMillis()), texts, io, downloads, label(app))
         setup = current
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         if (previous !is GuruHandler) {
@@ -69,61 +76,57 @@ internal object Guru {
             )
         }
         io(guarded("reading exit records") { collectExits(current) })
+        io(guarded("saving reports") { save(current) })
     }
 
     /**
-     * Shows the alert for the pending reports, if any. Queued on the IO thread behind the exit
-     * look, so an ANR from the last run is among them. [onUi] brings the result to the main
-     * thread the host's way (Verso's skips a destroyed activity).
+     * Shows the alert for what this start saved, if anything — once: a second call, or a
+     * recreated activity, shows nothing. Queued on the IO thread behind [install]'s steps.
+     * [onUi] brings the result to the main thread the host's way (Verso's skips a destroyed
+     * activity).
      */
     fun showPending(activity: Activity, onUi: (() -> Unit) -> Unit) {
         val s = setup ?: return
-        s.io(guarded("loading reports") {
-            val reports = s.store.pending()
-            if (reports.isNotEmpty()) {
-                val installation = s.store.installationId(::newId)
-                val zone = ZoneId.systemDefault()
-                val pending = Pending(reports, reports.associate { it.id to AcraJson.serialize(it, installation, zone) })
-                onUi { present(activity, s, pending, onUi) }
-            }
+        s.io(guarded("loading saved reports") {
+            val saved = s.saved
+            s.saved = emptyList()
+            if (saved.isNotEmpty()) onUi { present(activity, s, saved) }
         })
     }
 
-    private fun present(activity: Activity, s: Setup, pending: Pending, onUi: (() -> Unit) -> Unit) {
+    private fun present(activity: Activity, s: Setup, saved: List<Saved>) {
         if (activity.isFinishing || activity.isDestroyed) return
-        val discard = guarded("removing reports") { s.store.remove(pending.json.keys) }
         GuruScreen.show(
             activity,
-            GuruText.screenLines(pending.reports.first().number, pending.reports.size, s.texts),
+            GuruText.screenLines(saved.first().report.number, saved.size, s.texts),
             s.texts,
-            onContinue = { s.io(discard) },
-            onSave = { s.io(guarded("saving reports") { save(activity, s, pending, onUi) }) },
+            onShare = { offer(activity, saved) },
         )
     }
 
     // Each report saved is the user's file from then on, and Guru's copy goes at once, before the
-    // next is saved: a death in between repeats at most the one just saved (a second ZIP, the same
-    // REPORT_ID). One that fails stays for the next start. The chooser is only an offer: whatever
-    // happens there, the files are in Download/Guru already.
-    private fun save(activity: Activity, s: Setup, pending: Pending, onUi: (() -> Unit) -> Unit) {
+    // next is saved: a death in between repeats at most the one just saved (a second file, the
+    // same REPORT_ID). One that fails stays for the next start.
+    private fun save(s: Setup) {
+        val reports = s.store.pending()
+        if (reports.isEmpty()) return
+        val installation = s.store.installationId(::newId)
         val zone = ZoneId.systemDefault()
-        val resolver = s.context.contentResolver
-        val saved = pending.reports.mapNotNull { report ->
+        val saved = reports.mapNotNull { report ->
             val base = GuruDownloads.baseName(s.label, report, zone)
-            val bytes = GuruDownloads.zip(base, pending.json.getValue(report.id), report.crashedAt)
-            GuruDownloads.save(resolver, base, bytes, ::log)?.let { uri ->
+            s.downloads.save(base, AcraJson.serialize(report, installation, zone))?.let { file ->
                 s.store.remove(listOf(report.id))
-                report to uri
+                Saved(report, file)
             }
         }
-        s.toast(s.texts.saved(saved.size, pending.reports.size))
-        if (saved.isNotEmpty()) onUi { offer(activity, saved.first().first, saved.map { it.second }) }
+        s.downloads.prune()
+        s.saved = saved + s.saved
     }
 
     // A chooser that cannot start (no app, or the system refuses) costs nothing: the files stay.
     @Suppress("TooGenericExceptionCaught")
-    private fun offer(activity: Activity, subject: GuruReport, files: List<Uri>) {
-        if (activity.isFinishing || activity.isDestroyed) return
+    private fun offer(activity: Activity, saved: List<Saved>) {
+        val files = saved.map { it.file }
         val intent = if (files.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, files.single())
         } else {
@@ -135,12 +138,11 @@ internal object Guru {
         val clip = ClipData.newRawUri(null, files.first())
         files.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
         intent.setType(GuruDownloads.MIME)
-            .putExtra(Intent.EXTRA_SUBJECT, GuruText.subject(subject))
+            .putExtra(Intent.EXTRA_SUBJECT, GuruText.subject(saved.first().report))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             .clipData = clip
-        // A task of its own: the save waited on the host's io, so by now the user may be elsewhere,
-        // and from a singleTask HOME the chooser and the app picked would otherwise land in the
-        // launcher's task — a HOME press would clear a half-written mail.
+        // A task of its own: from a singleTask HOME the chooser and the app picked would otherwise
+        // land in the launcher's task — a HOME press would clear a half-written mail.
         val chooser = Intent.createChooser(intent, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             activity.startActivity(chooser)
