@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 123 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 129 tests):
 
 ```
 GuruStoreTest       16  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -23,8 +23,10 @@ GuruNumberTest      12  the number: kind with the dead-end bit, FNV-1a over the 
 ReportCodecTest     10  key=value round-trip (a hostile trace too); an unknown key from a newer
                         Guru skipped; missing field, bad value, bad escape or a cut-off file
                         is no report
-GuruTextTest         9  cap and readCapped at their limit (surrogate pairs whole), the alert
-                        lines, "+N more", the share body and subject
+GuruTextTest        12  cap and readCapped at their limit (surrogate pairs whole), the alert
+                        lines, "+N more", the subject; a share takes whole reports while they
+                        fit and names only those, a first one too big goes cut, the limit
+                        leaves room for three copies in one Binder transaction
 AcraJsonTest         7  the ACRA fields Acrarium requires, USER_CRASH_DATE's format, read back
                         with the real org.json
 ExitSelectionTest    7  which exit records become reports: the first look only sets the
@@ -37,19 +39,21 @@ GuruHandlerTest      5  one capture per process, a failing capture swallowed, th
                         handler always reached with the original throwable
 GuruTextsTest        5  GuruTexts.English: the toast after sending, "+N more", both gestures
                         named
-GuruInstallTest      8  Robolectric: a second install keeps one handler; the receiver only for
+GuruInstallTest      9  Robolectric: a second install keeps one handler; the receiver only for
                         Share, not exported; exit records (ShadowActivityManager) — the look
                         waits for io, the first start only marks, an ANR with its dump, a
-                        caught Java crash not twice, old exits and other reasons stay out
+                        caught Java crash not twice, old exits and other reasons stay out, an
+                        unreadable dump still a report and the mark moved
 GuruShowPendingTest  7  Robolectric: nothing pending, nothing shown; the alert after the exit
                         look and on the host's main; number and "+N more"; a tap removes after
                         the io step and only what was on screen; Back keeps all; a destroyed
                         activity gets no alert
-GuruShareTest       10  Robolectric: hold starts the chooser (subject, text, mailTo); a picked
+GuruShareTest       12  Robolectric: hold starts the chooser (subject, text, mailTo); a picked
                         app (ChooserResult SELECTED_COMPONENT) removes exactly the reports
                         handed over, on io; Copy, Edit, unknown, no result and no answer keep
                         all; the callback is mutable (the fill-in arrives); no app to share
-                        with keeps them and says so
+                        with keeps them and says so, and so does a start the system refuses;
+                        a picked app removes only the reports that fit in the text
 GuruScreenTest       5  Robolectric: continue and send each act once; TalkBack's action labels
                         and description from GuruTexts; the alert closes with its activity
 GuruTouchTest       10  Robolectric, real MotionEvents: a double-tap continues, a still hold

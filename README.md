@@ -62,6 +62,12 @@ go via `ACTION_SEND` to an app the user picks. They are removed only once an app
 cancelled chooser never answers; the reports stay for the next start. Nothing waits in
 memory, so a process death in between keeps them too (safe side).
 
+One share carries whole reports up to 100 K chars and removes only those; the rest stay
+for the next share. The start of the chooser is one Binder transaction of at most 1 MB,
+and Android copies the text into it about three times. A first report too big alone goes
+cut, so that it can leave at all. A start the system refuses anyway keeps the reports and
+shows the same toast as "no app to share with".
+
 To get shared reports into the backend anyway, save the shared text and run the backend's
 `tools/import_share.py` on it; it posts each report like `GuruSink.Acra` would.
 
@@ -171,17 +177,17 @@ dialog dismisses itself when its activity is destroyed.
 
 ## Tests
 
-`library/src/test/java`: 123 tests, JUnit 4, no mocks, each mutation-checked.
+`library/src/test/java`: 129 tests, JUnit 4, no mocks, each mutation-checked.
 
-- **83 plain JVM tests.** Real files in a `TemporaryFolder`, a real HTTP server on loopback
+- **86 plain JVM tests.** Real files in a `TemporaryFolder`, a real HTTP server on loopback
   for `AcraPost`, and the real desktop `org.json` for parsing the JSON back (the library
   Acrarium reads it with).
-- **40 Robolectric tests** for what the JVM alone cannot reach:
+- **43 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, the receiver registered only for `Share`.
-  - Exit records via `ShadowActivityManager`.
+  - Exit records via `ShadowActivityManager`, an unreadable ANR dump too.
   - `showPending`: tap, Back, a destroyed activity.
-  - The chooser and its answer: only an app picked removes; Copy, Edit, unknown or no
-    result keep the reports.
+  - The chooser and its answer: only an app picked removes, and only the reports in the
+    text; Copy, Edit, unknown or no result keep them, and so does a refused start.
   - `GuruScreen`: continue and send act once, TalkBack labels, closing with the activity.
   - Touch: a double-tap continues, a still hold sends; a single tap or a swipe does nothing.
 

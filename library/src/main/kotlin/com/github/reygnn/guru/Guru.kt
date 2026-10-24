@@ -5,7 +5,6 @@ import android.app.ActivityManager
 import android.app.Application
 import android.app.ApplicationExitInfo
 import android.app.PendingIntent
-import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -139,20 +138,26 @@ internal object Guru {
     }
 
     // The ids ride in the chooser's callback, so nothing waits in memory: whenever an app is
-    // picked, [shared] removes exactly these. Mutable, or the system's fill-in — the ChooserResult
-    // that tells an app picked from Copy — is dropped. The price: a fill-in could overwrite extras,
-    // the ids too. Only the system chooser holds this sender, the intent stays explicit (package
-    // set, as Android 14+ requires of a mutable one), and remove touches report files only.
-    // A newer share cancels an older callback still waiting: its reports stay, the safe side.
+    // picked, [shared] removes exactly these — the reports in the text, not all on screen.
+    // Mutable, or the system's fill-in — the ChooserResult that tells an app picked from Copy —
+    // is dropped. The price: a fill-in could overwrite extras, the ids too. Only the system
+    // chooser holds this sender, the intent stays explicit (package set, as Android 14+ requires
+    // of a mutable one), and remove touches report files only. A newer share cancels an older
+    // callback still waiting: its reports stay, the safe side.
+    //
+    // No app to share with, or a start the system refuses (a text too large for the Binder comes
+    // back as a RuntimeException): the reports stay, the user is told, and the HOME screen lives.
+    @Suppress("TooGenericExceptionCaught")
     private fun share(activity: Activity, s: Setup, sink: GuruSink.Share, pending: Pending) {
+        val share = GuruText.share(pending.reports) { pending.json.getValue(it.id) }
         val intent = Intent(Intent.ACTION_SEND)
             .setType("text/plain")
             .putExtra(Intent.EXTRA_SUBJECT, GuruText.subject(pending.reports.first()))
-            .putExtra(Intent.EXTRA_TEXT, GuruText.shareBody(pending.reports) { pending.json.getValue(it.id) })
+            .putExtra(Intent.EXTRA_TEXT, share.text)
         sink.mailTo?.let { intent.putExtra(Intent.EXTRA_EMAIL, arrayOf(it)) }
         val answer = Intent(s.sharedAction)
             .setPackage(activity.packageName)
-            .putExtra(EXTRA_IDS, pending.json.keys.toTypedArray())
+            .putExtra(EXTRA_IDS, share.ids.toTypedArray())
         val callback = PendingIntent.getBroadcast(
             activity,
             0,
@@ -161,8 +166,8 @@ internal object Guru {
         )
         try {
             activity.startActivity(Intent.createChooser(intent, null, callback.intentSender))
-        } catch (e: ActivityNotFoundException) {
-            log("no app to share with", e)
+        } catch (e: RuntimeException) {
+            log("share not started", e)
             callback.cancel()
             s.toast(s.texts.sent(0, pending.reports.size))
         }
@@ -174,10 +179,7 @@ internal object Guru {
         val am = s.context.getSystemService(ActivityManager::class.java) ?: return
         val records = am.getHistoricalProcessExitReasons(null, 0, EXIT_LOOKBACK).mapNotNull { info ->
             kindOf(info.reason)?.let { kind ->
-                ExitRecord(kind, info.timestamp, info.description.orEmpty()) {
-                    if (kind != GuruKind.ANR) null
-                    else info.traceInputStream?.use { GuruText.readCapped(it, GuruText.MAX_DUMP_BYTES) }
-                }
+                ExitRecord(kind, info.timestamp, info.description.orEmpty()) { if (kind == GuruKind.ANR) dump(info) else null }
             }
         }
         val seen = s.store.exitsSeen()
@@ -185,6 +187,16 @@ internal object Guru {
         val outcome = ExitSelection.select(records, seen, System.currentTimeMillis(), handlerTimes)
         outcome.report.forEach { s.store.write(s.process.exit(newId(), it)) }
         if (outcome.seen != seen) s.store.markExitsSeen(outcome.seen)
+    }
+
+    // An unreadable dump still makes a report, without it; thrown, it would stop the loop before
+    // the mark moves, and the same exits would come back on every start.
+    @Suppress("TooGenericExceptionCaught")
+    private fun dump(info: ApplicationExitInfo): String? = try {
+        info.traceInputStream?.use { GuruText.readCapped(it, GuruText.MAX_DUMP_BYTES) }
+    } catch (e: Exception) {
+        log("ANR dump unreadable", e)
+        null
     }
 
     private fun kindOf(reason: Int): GuruKind? = when (reason) {

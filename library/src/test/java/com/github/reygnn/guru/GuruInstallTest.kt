@@ -12,6 +12,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowActivityManager.ApplicationExitInfoBuilder
+import java.io.IOException
+import java.io.InputStream
 
 @RunWith(RobolectricTestRunner::class)
 class GuruInstallTest {
@@ -20,14 +22,17 @@ class GuruInstallTest {
 
     private val now get() = System.currentTimeMillis()
 
-    private fun exit(reason: Int, at: Long, description: String = "", dump: String? = null) {
+    private fun exit(reason: Int, at: Long, description: String = "", dump: String? = null) =
+        exit(reason, at, description, dump?.byteInputStream())
+
+    private fun exit(reason: Int, at: Long, description: String, dump: InputStream?) {
         val am = host.app.getSystemService(ActivityManager::class.java)
         val builder = ApplicationExitInfoBuilder.newBuilder()
             .setReason(reason)
             .setTimestamp(at)
             .setDescription(description)
             .setProcessName(host.app.packageName)
-        if (dump != null) builder.setTraceInputStream(dump.byteInputStream())
+        if (dump != null) builder.setTraceInputStream(dump)
         shadowOf(am).addApplicationExitInfo(builder.build())
     }
 
@@ -138,5 +143,25 @@ class GuruInstallTest {
         host.runIo()
 
         assertTrue(host.store.pending().isEmpty())
+    }
+
+    @Test
+    fun `an unreadable ANR dump still makes a report, and the mark moves`() {
+        host.store.markExitsSeen(now - 10 * GuruHostRule.MINUTE_MS)
+        val crashAt = now - 2 * GuruHostRule.MINUTE_MS
+        val anrAt = now - GuruHostRule.MINUTE_MS
+        exit(ApplicationExitInfo.REASON_CRASH_NATIVE, crashAt, "SIGSEGV")
+        val unreadable = object : InputStream() {
+            override fun read(): Int = throw IOException("dump gone")
+        }
+        exit(ApplicationExitInfo.REASON_ANR, anrAt, "Input dispatching timed out", unreadable)
+
+        Guru.install(host.app, GuruSink.Share(), host.io)
+        host.runIo()
+
+        val pending = host.store.pending()
+        assertEquals(setOf(GuruKind.ANR, GuruKind.NATIVE), pending.map { it.kind }.toSet())
+        assertEquals("ApplicationNotResponding: Input dispatching timed out", pending.single { it.kind == GuruKind.ANR }.trace)
+        assertEquals(anrAt, host.store.exitsSeen())
     }
 }

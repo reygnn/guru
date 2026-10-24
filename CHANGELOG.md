@@ -5,6 +5,18 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 
 ## Unreleased
 
+- Fix: a share cut at its limit removed every report once an app was picked, the ones cut
+  off too. A share now carries whole reports only and removes exactly those; the rest stay
+  for the next share. A first report too big alone still goes, cut.
+- Fix: a share too large for the Binder (the text travels about three times in the chooser's
+  start) threw out of `startActivity` and killed the host — for a launcher, on every hold.
+  The limit is now 100 K chars instead of 200 K, and a start the system refuses keeps the
+  reports and shows the "no app" toast.
+- Fix: an ANR dump that threw while being read stopped the exit look before the mark moved,
+  so the same exits came back as new reports on every start. Such an ANR is now reported
+  without its dump.
+- 6 tests (129 in all).
+
 - Docs: the backend contract as deployed on 2026-10-23 — every Guru report grouped by
   package, class and Guru number; a `REPORT_ID` counted once; reporter and admin users
   separate; shared reports importable with the backend's `tools/import_share.py`.

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentSender
+import android.os.TransactionTooLargeException
 import android.service.chooser.ChooserResult
 import android.view.ViewGroup
 import org.junit.Assert.assertArrayEquals
@@ -14,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.fakes.RoboIntentSender
@@ -35,11 +37,24 @@ class GuruShareTest {
         Guru.install(host.app, sink, host.io)
         host.store.markExitsSeen(System.currentTimeMillis() - GuruHostRule.MINUTE_MS)
         activity = host.activity().get()
+        return holdOn(activity)!!
+    }
+
+    private fun holdOn(activity: Activity): Intent? {
         Guru.showPending(activity) { it() }
         host.runIo()
         val view = ShadowDialog.getLatestDialog().findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
         view.performLongClick()
         return shadowOf(activity).nextStartedActivity
+    }
+
+    /** An activity the system refuses to start anything for, as with a text too large for the Binder. */
+    class RefusingActivity : Activity() {
+        // what the system throws there: a plain RuntimeException around the Binder's refusal
+        @Suppress("TooGenericExceptionThrown")
+        override fun startActivity(intent: Intent?) {
+            throw RuntimeException("Failure from system", TransactionTooLargeException("data parcel size 1234567 bytes"))
+        }
     }
 
     // Android 15+ files createChooser's sender under the chooser-result key.
@@ -157,6 +172,37 @@ class GuruShareTest {
         host.runIo()
 
         ShadowDialog.getLatestDialog().findViewById<ViewGroup>(android.R.id.content).getChildAt(0).performLongClick()
+        host.idleMain()
+        host.runIo()
+
+        assertEquals(listOf(a), host.store.pending().map { it.id })
+        assertEquals(GuruTexts.English.sent(0, 1), ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test
+    fun `a picked app removes only the reports that fit in the text`() {
+        val big = "x".repeat(GuruText.MAX_SHARE_CHARS * 2 / 3)
+        host.store.write(report(id = a, crashedAt = System.currentTimeMillis() - 2 * GuruHostRule.MINUTE_MS, trace = big))
+        host.store.write(report(id = b, crashedAt = System.currentTimeMillis() - GuruHostRule.MINUTE_MS, trace = big))
+        val first = host.store.pending().first().id
+        val chooser = hold()
+
+        val text = chooser.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)!!.getStringExtra(Intent.EXTRA_TEXT)!!
+        assertTrue(text.length <= GuruText.MAX_SHARE_CHARS)
+        pick(chooser)
+        host.runIo()
+
+        assertEquals(listOf(a, b) - first, host.store.pending().map { it.id })
+    }
+
+    @Test
+    fun `a share the system refuses keeps the reports and says so`() {
+        host.crashed(a)
+        Guru.install(host.app, GuruSink.Share(), host.io)
+        host.store.markExitsSeen(System.currentTimeMillis() - GuruHostRule.MINUTE_MS)
+        val refusing = Robolectric.buildActivity(RefusingActivity::class.java).setup().get()
+
+        holdOn(refusing)
         host.idleMain()
         host.runIo()
 

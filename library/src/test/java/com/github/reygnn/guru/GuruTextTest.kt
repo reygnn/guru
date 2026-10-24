@@ -1,6 +1,7 @@
 package com.github.reygnn.guru
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
@@ -58,12 +59,37 @@ class GuruTextTest {
     }
 
     @Test
-    fun `the share body carries each report under its number, capped`() {
-        val body = GuruText.shareBody(listOf(report(id = "a"), report(id = "b"))) { "{${it.id}}" }
+    fun `a share carries each report under its number`() {
+        val share = GuruText.share(listOf(report(id = "a"), report(id = "b"))) { "{${it.id}}" }
         val number = report().number
-        assertEquals("Guru Meditation $number\n{a}\n\nGuru Meditation $number\n{b}", body)
-        val huge = GuruText.shareBody(listOf(report())) { "x".repeat(GuruText.MAX_SHARE_CHARS) }
-        assertTrue(huge.endsWith("chars cut]"))
+        assertEquals("Guru Meditation $number\n{a}\n\nGuru Meditation $number\n{b}", share.text)
+        assertEquals(listOf("a", "b"), share.ids)
+    }
+
+    @Test
+    fun `a share takes whole reports while they fit and names only those`() {
+        val head = "Guru Meditation ${report().number}\n".length
+        val half = GuruText.MAX_SHARE_CHARS / 2
+        // a and b fill the limit to the char, separator included; c no longer fits
+        val sizes = mapOf("a" to half - head - 1, "b" to half - head - 1, "c" to 1)
+        val share = GuruText.share(listOf("a", "b", "c").map { report(id = it) }) { "x".repeat(sizes.getValue(it.id)) }
+
+        assertEquals(listOf("a", "b"), share.ids)
+        assertEquals(GuruText.MAX_SHARE_CHARS, share.text.length)
+        assertFalse(share.text.contains("chars cut"))
+    }
+
+    @Test
+    fun `a first report too big alone goes capped, the rest stays`() {
+        val share = GuruText.share(listOf(report(id = "a"), report(id = "b"))) { "x".repeat(GuruText.MAX_SHARE_CHARS) }
+
+        assertEquals(listOf("a"), share.ids)
+        assertTrue(share.text.endsWith("chars cut]"))
+    }
+
+    @Test
+    fun `the share limit leaves room for three copies in one Binder transaction`() {
+        assertTrue(3 * 2 * GuruText.MAX_SHARE_CHARS < 1024 * 1024 * 3 / 4)
     }
 
     @Test
