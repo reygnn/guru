@@ -5,7 +5,9 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 
 ## 2.1.2 — 2026-10-25
 
-From the device test of 2.1.1. Not yet checked on the A17.
+From the device test of 2.1.1. Checked on the A17: the process killed while the alert was up,
+One UI's dialog closed 45 s later — two exit records for the pid, one file saved; a plain crash
+and "Crash twice" still give one and two reports; the on-device tests 5/5.
 
 - Fix: One UI keeps a crashed process alive behind its "keeps stopping" dialog and, when it
   is closed, records a second crash for the same pid — a minute later, beyond the 10 s in
