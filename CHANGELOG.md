@@ -3,6 +3,20 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
+## Unreleased
+
+From Verso's audit 2026-10-24, B.9 and the rest of B.10. Not yet checked on the A17.
+
+- Fix: the prune knew Guru's files only by folder and owner — a file of the app's own moved
+  into `Download/Guru` (a Verso backup) counted among the 32 and could be removed. Now only a
+  name Guru gives counts: ending in the crash time and `.json`, MediaStore's ` (n)` allowed.
+- Fix: `diedInGuru` sees only a Java crash on main; a native crash or an ANR caused by the
+  alert came back at every start. While the alert is up, a mark (`alert-up`) lies in Guru's
+  store; a start that finds it with new reports saves them and shows no alert. The mark is
+  cleared on every way out, and an older alert's dismissal leaves a newer one's. An older Guru
+  ignores the file.
+- 200 tests.
+
 ## 2.1.0 — 2026-10-24
 
 **The alert as on the Amiga.** Checked on the A17 with the sample and with Verso (daily-driver

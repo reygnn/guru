@@ -26,7 +26,10 @@ answers: an app that dies before its alert still has its reports in `Download/Gu
 alert that cannot be built (the host's texts throw) is logged and left out; one that
 crashes later, in layout or drawing, is left out at the next start — its crash, on the main
 thread with its root cause thrown in Guru's own code, is saved like any other, but gets no
-alert. No start loops on Guru's own alert. (A host's crash that merely passes through a Guru
+alert. What Guru cannot read from a trace — a native crash or an ANR while the alert is up —
+it knows from a mark in its store, written before the alert shows and cleared when it goes:
+found at the next start with new reports, that start saves them and shows no alert (one left
+behind by a process merely killed, nothing new, is cleared). No start loops on Guru's own alert. (A host's crash that merely passes through a Guru
 class further down — R8 merges lambdas across packages — still gets its alert.)
 
 Platform APIs and the Kotlin stdlib only, minSdk 36 like the rest of the family.
@@ -62,8 +65,8 @@ thread's first three frames.
 `filesDir/guru/`: one `guru-<time>-<id>.txt` per report (`key=value`, readable with
 `adb`), written atomically (`.new` + fsync → rename → fsync dir) — only until the next
 start saves it to `Download/Guru/`. At most 8, the newest. A crash loop cannot fill the
-disk. Beside them: `installation-id`, `exits-seen` and `crashes-saved` (the times of the
-crashes saved, the newest 8).
+disk. Beside them: `installation-id`, `exits-seen`, `crashes-saved` (the times of the
+crashes saved, the newest 8) and, while an alert is up, `alert-up`.
 
 ## Saving
 
@@ -91,9 +94,9 @@ Of its own files in `Download/Guru/`, Guru keeps the newest 32 and removes the r
 saving, so a crash loop cannot fill the folder; a hidden file of ours left by a save that died
 halfway goes too (its report is still in the store and saved anew). Only files this app made are ever listed or
 removed: files the user put there, another app's, or an earlier install's are not touched.
-A file of Guru's that the user renames inside the folder still counts, and so does one of this
-app's own files moved into it; moved out, a file is the
-user's alone.
+And only under a name Guru gives — ending in the crash time and `.json`, ` (n)` allowed: one
+of this app's other files moved into the folder is not counted, and neither is a file of Guru's
+the user renames to anything else; moved out, a file is the user's alone.
 
 **The alert** then names the newest report's number and how many were saved — only what this
 start saved, and once it has been seen, never again: a second `showPending` shows nothing.
