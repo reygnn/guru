@@ -209,14 +209,19 @@ internal object Guru {
     // Only an ANR's dump is text; a native crash's is a protobuf tombstone and stays out.
     private fun collectExits(s: Setup) {
         val am = s.context.getSystemService(ActivityManager::class.java) ?: return
-        val records = am.getHistoricalProcessExitReasons(null, 0, EXIT_LOOKBACK).mapNotNull { info ->
+        val history = am.getHistoricalProcessExitReasons(null, 0, EXIT_LOOKBACK)
+        // No pid (0) is no process: such an exit is never taken for a second end.
+        val records = history.mapNotNull { info ->
             kindOf(info.reason)?.let { kind ->
-                ExitRecord(kind, info.timestamp, info.description.orEmpty()) { if (kind == GuruKind.ANR) dump(info) else null }
+                ExitRecord(kind, info.timestamp, info.description.orEmpty(), info.pid.takeIf { it > 0 }) {
+                    if (kind == GuruKind.ANR) dump(info) else null
+                }
             }
         }
         val seen = s.store.exitsSeen()
         val handlerTimes = s.store.pending().filter { it.kind == GuruKind.CRASH }.map { it.crashedAt } + s.store.crashesSaved()
-        val outcome = ExitSelection.select(records, seen, System.currentTimeMillis(), handlerTimes)
+        val ends = history.map { ProcessEnd(it.pid, it.timestamp) }
+        val outcome = ExitSelection.select(records, seen, System.currentTimeMillis(), handlerTimes, ends)
         outcome.report.forEach { s.store.write(s.process.exit(newId(), it)) }
         if (outcome.seen != seen) s.store.markExitsSeen(outcome.seen)
     }

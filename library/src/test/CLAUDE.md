@@ -12,7 +12,7 @@ purpose: no coroutines, no MockK — see "deliberately not".
 
 ## What exists
 
-Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 200 tests):
+Unit tests (`library/src/test`, `./gradlew :library:testDebugUnitTest`, 205 tests):
 
 ```
 GuruStoreTest       21  reports on real files: atomic write (.new, rename, dir fsync), newest
@@ -36,9 +36,11 @@ GuruTextTest        11  cap and readCapped at their limit (surrogate pairs whole
                         a package below
 AcraJsonTest         7  the ACRA fields Acrarium requires, USER_CRASH_DATE's format, read back
                         with the real org.json
-ExitSelectionTest    7  which exit records become reports: the first look only sets the
+ExitSelectionTest   10  which exit records become reports: the first look only sets the
                         mark, oldest first, a Java crash the handler caught not twice, an ANR
-                        beside it still reported, the mark moved even past a dropped crash
+                        beside it still reported, the mark moved even past a dropped crash;
+                        a second end of the same process (the pid of the end just before, of
+                        any reason) is no report, a pid reused later is
 GuruDownloadsTest    8  the file's name: app, version, local crash time; unsafe characters
                         to `_`, dashes kept, empty parts left out, ASCII digits in any locale,
                         the calendar year, label and version cut under 255 bytes; Guru's own
@@ -83,13 +85,14 @@ GuruShareTest        5  Robolectric: a hold offers one file (SEND) or several (S
                         read access but no write for the chooser and the app picked, in a
                         new task, under the newest's subject; only what was saved; a chooser
                         that cannot start costs nothing
-GuruInstallTest     11  Robolectric (every save refused, so reports stay readable): a second
+GuruInstallTest     13  Robolectric (every save refused, so reports stay readable): a second
                         install keeps one handler; no receiver; exit records
                         (ShadowActivityManager) — the look waits for io, the first start only
                         marks, an ANR with its dump, a caught Java crash not twice, old exits
                         and other reasons stay out, an unreadable dump (checked or unchecked)
                         still a report and the mark moved, a native tombstone stays out, an
-                        ANR report hides no crash exit
+                        ANR report hides no crash exit; One UI's second crash record of a
+                        process once, the next process's crash still reported
 GuruScreenTest       9  Robolectric: close shares nothing, share acts once (the hold
                         consumed); TalkBack's action labels and description from GuruTexts;
                         the alert closes with its activity; a long host line shrinks only

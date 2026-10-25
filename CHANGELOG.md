@@ -3,6 +3,17 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
+## 2.1.2 — 2026-10-25
+
+From the device test of 2.1.1. Not yet checked on the A17.
+
+- Fix: One UI keeps a crashed process alive behind its "keeps stopping" dialog and, when it
+  is closed, records a second crash for the same pid — a minute later, beyond the 10 s in
+  which a Java crash meets the handler's report. That record became a second report, without
+  a thread, its trace "Crash: crash", its own `REPORT_ID`. An exit with the pid of the exit
+  just before it (any reason) is now no report; the mark still moves past it.
+- 205 tests.
+
 ## 2.1.1 — 2026-10-25
 
 From Verso's audit 2026-10-24, B.9 and the rest of B.10. Checked on the A17: the process killed

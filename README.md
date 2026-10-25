@@ -43,8 +43,10 @@ Platform APIs and the Kotlin stdlib only, minSdk 36 like the rest of the family.
 | Native crash | `#80000003` | `ApplicationExitInfo`, on the next start | description only (the tombstone is protobuf) |
 
 A Java crash shows up in `ApplicationExitInfo` too; it is dropped when the handler wrote
-a report within 10 s of it. On the very first start with Guru the exit history is only
-marked, not reported: it predates Guru.
+a report within 10 s of it. An exit with the pid of the exit just before it is the same
+process ending again — One UI keeps a crashed process alive behind its "keeps stopping"
+dialog and records a second crash when it is closed — and is no report. On the very first
+start with Guru the exit history is only marked, not reported: it predates Guru.
 
 **The number.** `#80000001` is the kind with the Amiga's dead-end bit. The second half
 is FNV-1a over the root cause's type and its first three frames, without messages and
@@ -238,11 +240,12 @@ of its own and does not move.
 
 `library/src/test/java`: 190 tests, JUnit 4, no mocks, each mutation-checked.
 
-- **91 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
+- **97 plain JVM tests.** Real files in a `TemporaryFolder`, and the real desktop
   `org.json` for parsing the JSON back (the library Acrarium reads it with).
-- **99 Robolectric tests** for what the JVM alone cannot reach:
+- **108 Robolectric tests** for what the JVM alone cannot reach:
   - `Guru.install`: one handler, no receiver.
-  - Exit records via `ShadowActivityManager`, an unreadable ANR dump too.
+  - Exit records via `ShadowActivityManager`, an unreadable ANR dump too; a crash One UI
+    records again when its dialog closes, once.
   - Saving at the start through a fake MediaStore provider: one file per report in
     `Download/Guru`, hidden until complete, removed from Guru's store once saved; a refused,
     failed or throwing save keeps that report; the newest 32 of Guru's own files stay, no
