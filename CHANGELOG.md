@@ -3,7 +3,7 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
-## Unreleased
+## 2.1.1 — 2026-10-25
 
 From Verso's audit 2026-10-24, B.9 and the rest of B.10. Not yet checked on the A17.
 
