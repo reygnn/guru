@@ -279,16 +279,21 @@ plain application id, so install it with
 3. Crash, start; double-tap: the alert closes. Restart: no alert.
 4. Crash, start; while the alert is up, switch dark mode (or rotate): the recreated screen
    shows the alert again.
-5. "Crash twice", start (it crashes again before Guru saves), start again: "2 reports saved
+5. Crash, start; while the alert is up, kill the process with
+   `adb shell am crash com.github.reygnn.guru.sample`. One UI may first show "… wird
+   wiederholt beendet" and keep the process alive until "App schließen" is tapped — a start
+   before that starts nothing new; after several crashes device care may offer "Cache
+   leeren?" — cancel it. Start: no alert, the `am crash` report saved in `Download/Guru/`.
+6. "Crash twice", start (it crashes again before Guru saves), start again: "2 reports saved
    to Download/Guru"; hold: both files offered together; pick mail (or guru2acra, once it
    takes `.json`), it receives both.
-6. Press "ANR" and touch the screen until the system kills the app, restart:
+7. Press "ANR" and touch the screen until the system kills the app, restart:
    `#80000002`, the thread dump in the file.
-7. TalkBack in German: the hint, both actions and the "saved" line are read in German.
+8. TalkBack in German: the hint, both actions and the "saved" line are read in German.
    In every step: the strip at the top, the app slid down under it and, once the alert is
    closed, back exactly where it was — in portrait and landscape, and with "Remove
    animations" without the slide and the blink.
-8. `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`: green.
+9. `ANDROID_SERIAL=R5GL51D5VHZ ./gradlew :library:connectedAndroidTest`: green.
 
 ## Verified
 

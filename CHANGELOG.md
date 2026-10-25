@@ -5,7 +5,10 @@ minor or patch is in `CLAUDE.md`, "Versions and releases".
 
 ## 2.1.1 — 2026-10-25
 
-From Verso's audit 2026-10-24, B.9 and the rest of B.10. Not yet checked on the A17.
+From Verso's audit 2026-10-24, B.9 and the rest of B.10. Checked on the A17: the process killed
+while the alert was up — the next start saved its report and showed no alert; the other steps
+of the device test as before (TalkBack not listened to, the app picked for two files not
+checked); the on-device tests 5/5.
 
 - Fix: the prune knew Guru's files only by folder and owner — a file of the app's own moved
   into `Download/Guru` (a Verso backup) counted among the 32 and could be removed. Now only a
