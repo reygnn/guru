@@ -3,6 +3,22 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
+## Unreleased
+
+From the external review of 2026-10-25 (Verso's `docs/audits/AUDIT-2026-10-25-extern.md`).
+Not yet checked on the A17.
+
+- Fix: the host's last line was measured at the size the previous layout left it, then that
+  measure scaled the Amiga lines' size. Its size swung from layout to layout: after a narrow
+  layout (split screen) far too small, after the next wide one too big for the box. It is now
+  measured at the size it is scaled from.
+- Fix: the exit look asked for the newest 16 exit records only; a crash behind 16 other ends
+  since the mark was lost. It now takes every record the system keeps; the mark keeps the old
+  ones out.
+- U+2028 / U+2029 in `AcraJson` written as escapes instead of the raw characters; the output is
+  unchanged.
+- 208 tests.
+
 ## 2.1.2 — 2026-10-25
 
 From the device test of 2.1.1. Checked on the A17: the process killed while the alert was up,
