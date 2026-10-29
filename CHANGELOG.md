@@ -3,10 +3,11 @@
 Every tag has an entry here, newest first. Versions follow SemVer; what counts as major,
 minor or patch is in `CLAUDE.md`, "Versions and releases".
 
-## Unreleased
+## 2.1.3 — 2026-10-29
 
 From the external review of 2026-10-25 (Verso's `docs/audits/AUDIT-2026-10-25-extern.md`).
-Not yet checked on the A17.
+Checked on the A17: "Crash twice" — "2 Berichte in Download/Guru" in the box at the Amiga lines'
+size; the on-device tests 5/5. Split screen not tried.
 
 - Fix: the host's last line was measured at the size the previous layout left it, then that
   measure scaled the Amiga lines' size. Its size swung from layout to layout: after a narrow
