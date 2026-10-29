@@ -15,6 +15,9 @@ Not yet checked on the A17.
 - Fix: the exit look asked for the newest 16 exit records only; a crash behind 16 other ends
   since the mark was lost. It now takes every record the system keeps; the mark keeps the old
   ones out.
+- The default text for several reports is shorter: "3 reports in Download/Guru" instead of
+  "3 reports saved to Download/Guru" — it no longer comes out smaller than the Amiga lines. The
+  sample says the same, in German "3 Berichte in Download/Guru". One report reads as before.
 - U+2028 / U+2029 in `AcraJson` written as escapes instead of the raw characters; the output is
   unchanged.
 - 208 tests.
